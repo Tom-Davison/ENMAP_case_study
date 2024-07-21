@@ -1,3 +1,4 @@
 *.TIF
 *.tif
 .DS_Store
+.XML
