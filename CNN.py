@@ -39,13 +39,13 @@ def train_test_CNN(X_train, y_train, n_classes):
     return model
     
 
-def predict_CNN(model, X, y, unit_class_mapping, PATCH_SIZE):
+def predict_CNN(model, X, y, unit_class_mapping, class_mapping, PATCH_SIZE):
 
     #convert y to consecutive labels
     y = (y / 10) - 1
 
     cmap = plt.cm.get_cmap('tab10', len(unit_class_mapping))
-    norm = mcolors.BoundaryNorm(boundaries=[key - 0.5 for key in sorted(unit_class_mapping.keys())] + [max(original_to_new_index_mapping.keys()) + 0.5], ncolors=len(original_to_new_index_mapping))
+    norm = mcolors.BoundaryNorm(boundaries=[key - 0.5 for key in sorted(unit_class_mapping.keys())] + [max(unit_class_mapping.keys()) + 0.5], ncolors=len(unit_class_mapping))
 
     unique_labels = sorted(unit_class_mapping.keys())
     consecutive_to_label = {i: label for i, label in enumerate(unique_labels)}
@@ -105,7 +105,7 @@ def predict_CNN(model, X, y, unit_class_mapping, PATCH_SIZE):
             accuracy = counts['true_positive'] / counts['total']
         else:
             accuracy = 0
-        print(f"Accuracy for {unit_class_mapping[class_id]}: {accuracy:.10f}")
+        print(f"Accuracy for {class_mapping[unit_class_mapping[class_id]]}: {accuracy:.2f}")
 
     # Create a mask for correct (green) and incorrect (red) labels
     correct_mask = (y == outputs)
@@ -127,7 +127,7 @@ def predict_CNN(model, X, y, unit_class_mapping, PATCH_SIZE):
     plt.subplot(1, 2, 1)
     predict_image = plt.imshow(outputs, cmap=cmap, norm=norm)
     cbar = plt.colorbar(predict_image, ticks=sorted(unit_class_mapping.keys()))
-    cbar.ax.set_yticklabels([unit_class_mapping[key] for key in sorted(unit_class_mapping.keys())])
+    cbar.ax.set_yticklabels([class_mapping[unit_class_mapping[key]] for key in sorted(unit_class_mapping.keys())])
     plt.title("Predicted Image")
 
     # Plot correct vs. incorrect mask

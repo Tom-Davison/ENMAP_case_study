@@ -55,7 +55,7 @@ X_train, X_test, y_train, y_test, X = process_data(X, y, numComponents=numCompon
 
 #modelling
 model = train_test_CNN(X_train, y_train, n_classes)
-predict_CNN(model, X, y, unit_class_mapping, PATCH_SIZE)
+predict_CNN(model, X, y, unit_class_mapping, class_mapping, PATCH_SIZE)
 
 
 #testing on novel data
@@ -63,7 +63,7 @@ enmap_data_path = 'data/ENMAP01-____L2A-DT0000002446_20220810T112429Z_002_V01030
 enmap_metadata_path = 'data/ENMAP01-____L2A-DT0000002446_20220810T112429Z_002_V010303_20230922T131813Z-METADATA.xml'
 esa_worldcover_path = 'data/ESA_WorldCover_10m_2021_v200_N51E006_Map.tif'
 
-X, y = read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=True)
+X, y = read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=False)
 unique_labels = np.unique(y)
 n_classes = len(unique_labels)
 uniqueLabels, labelCounts = np.unique(y, return_counts=True)
@@ -71,5 +71,5 @@ print("Unique Labels are: ", uniqueLabels)
 print("The number of labels is: ", labelCounts+1)
 
 #processing
-X_train, X_test, y_train, y_test, X = process_data(X, y, class_mapping, numComponents=numComponents, windowSize=windowSize, testRatio=testRatio, PATCH_SIZE=PATCH_SIZE)
-predict_CNN(model, X, y, class_mapping, PATCH_SIZE)
+X_train, X_test, y_train, y_test, X = process_data(X, y, numComponents=numComponents, windowSize=windowSize, testRatio=testRatio, PATCH_SIZE=PATCH_SIZE)
+predict_CNN(model, X, y, unit_class_mapping, class_mapping, PATCH_SIZE)
