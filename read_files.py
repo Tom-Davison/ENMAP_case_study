@@ -5,8 +5,9 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 from rasterio.mask import mask
 from shapely.geometry import box
 import geopandas as gpd
+import xml.etree.ElementTree as ET
 
-def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, class_mapping, plot=False):
+def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=False):
     """
     Reads EnMAP data, EnMAP metadata, and ESA WorldCover data, reprojects both to EPSG:4326,
     and plots them overlaid.
@@ -19,6 +20,21 @@ def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, class_
     """
 
     target_crs = 'EPSG:4326'  # Define the target CRS (WGS 84)
+
+    #read XML for boundary
+    # Load and parse the XML metadata file
+    tree = ET.parse(enmap_metadata_path)
+    root = tree.getroot()
+
+    # Extract bounding coordinates
+    bounding_polygon = root.find(".//spatialCoverage/boundingPolygon")
+    coordinates = []
+    for point in bounding_polygon.findall("point"):
+        lat = float(point.find("latitude").text)
+        lon = float(point.find("longitude").text)
+        coordinates.append((lat, lon))
+
+    print("Bounding Coordinates:", coordinates)
 
     # Step 1: Read EnMAP Data
     with rasterio.open(enmap_data_path) as enmap_src:
@@ -97,7 +113,7 @@ def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, class_
         enmap_plot = ax.imshow(enmap_image[0], cmap='gray', extent=enmap_extent, alpha=0.7, vmin=-50, vmax=3000)
 
         # Plot WorldCover data, limited to the EnMAP extent
-        wc_plot = ax.imshow(wc_out_image, cmap='jet', extent=wc_extent, alpha=0.3)
+        wc_plot = ax.imshow(wc_out_image, cmap='tab10', extent=wc_extent, alpha=0.3)
 
         # Add colorbars
         fig.colorbar(enmap_plot, ax=ax, fraction=0.036, pad=0.04, label='EnMAP Reflectance')
@@ -140,7 +156,7 @@ def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, class_
         ax.imshow(enmap_image[0], cmap='gray', extent=enmap_extent, alpha=0.7)
 
         # Plot the new y data
-        y_plot = ax.imshow(label_array, cmap='jet', extent=enmap_extent, alpha=0.3)
+        y_plot = ax.imshow(label_array, cmap='tab10', extent=enmap_extent, alpha=0.3)
 
         # Add colorbar
         fig.colorbar(y_plot, ax=ax, fraction=0.036, pad=0.04, label='New ESA Labels')
@@ -154,8 +170,8 @@ def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, class_
         plt.show()
 
     y = label_array
-    y = (y / 10) - 1
-    y = y.astype(int)
+    #y = (y / 10) - 1
+    #y = y.astype(int)
 
     X = enmap_image  # Spectral data
     X = X.transpose(1, 2, 0)
