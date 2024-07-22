@@ -3,9 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 from rasterio.mask import mask
-from shapely.geometry import box
+from shapely.geometry import Polygon
 import geopandas as gpd
 import xml.etree.ElementTree as ET
+from shapely.geometry import box
+from rasterio.plot import show
+
 
 def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=False):
     """
@@ -16,12 +19,11 @@ def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=F
     - enmap_data_path: str, path to the EnMAP image data file.
     - enmap_metadata_path: str, path to the EnMAP metadata file.
     - esa_worldcover_path: str, path to the ESA WorldCover data file.
-    - class_mapping: dict, a dictionary for class mapping (not used in this function).
     """
 
     target_crs = 'EPSG:4326'  # Define the target CRS (WGS 84)
 
-    #read XML for boundary
+    # Read XML for boundary
     # Load and parse the XML metadata file
     tree = ET.parse(enmap_metadata_path)
     root = tree.getroot()
@@ -32,9 +34,14 @@ def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=F
     for point in bounding_polygon.findall("point"):
         lat = float(point.find("latitude").text)
         lon = float(point.find("longitude").text)
-        coordinates.append((lat, lon))
+        coordinates.append((lon, lat))  # Note the order (lon, lat)
 
     print("Bounding Coordinates:", coordinates)
+
+    # Convert coordinates to a Polygon
+    bounding_polygon = Polygon(coordinates[0:5])
+    gdf_polygon = gpd.GeoDataFrame([1], geometry=[bounding_polygon], crs=target_crs)
+    print("Bounding Polygon:", bounding_polygon)
 
     # Step 1: Read EnMAP Data
     with rasterio.open(enmap_data_path) as enmap_src:
@@ -42,32 +49,65 @@ def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=F
         enmap_transform = enmap_src.transform
         enmap_crs = enmap_src.crs
         print(f"CRS of the EnMAP data: {enmap_crs}")
+
+        # Convert bounding polygon to EnMAP CRS
+        gdf_polygon = gdf_polygon.to_crs(enmap_crs)
+
+        # Clip the EnMAP data using the bounding polygon
+        out_image, out_transform = mask(
+            dataset=enmap_src,
+            shapes=gdf_polygon.geometry,
+            crop=True
+        )
         
-        # Reproject EnMAP data to target CRS
-        transform, width, height = calculate_default_transform(
-            enmap_crs, target_crs, enmap_src.width, enmap_src.height, *enmap_src.bounds)
-        
-        enmap_image_reprojected = np.empty((enmap_image.shape[0], height, width), dtype=enmap_image.dtype)
-        
-        for i in range(enmap_image.shape[0]):
+        fig, ax = plt.subplots(figsize=(10, 10))
+        show(out_image[0], transform=out_transform, ax=ax, cmap='gray')
+        gdf_polygon = gdf_polygon.to_crs(enmap_crs)
+        gdf_polygon.boundary.plot(ax=ax, edgecolor='red')
+        plt.show()
+
+    # Update the metadata with the new dimensions, transform, and CRS
+    out_meta = enmap_src.meta.copy()
+    out_meta.update({
+        "height": out_image.shape[1],
+        "width": out_image.shape[2],
+        "transform": out_transform,
+        "crs": enmap_crs
+    })
+
+    # Step 2: Reproject the clipped EnMAP data to EPSG:4326
+    transform, width, height = calculate_default_transform(
+        out_meta['crs'], target_crs, out_meta['width'], out_meta['height'], *rasterio.transform.array_bounds(out_image.shape[1], out_image.shape[2], out_transform))
+
+    clipped_image_reprojected = np.empty((out_image.shape[0], height, width), dtype=out_image.dtype)
+
+    for i in range(out_image.shape[0]):
             reproject(
                 source=enmap_image[i],
-                destination=enmap_image_reprojected[i],
+                destination=clipped_image_reprojected[i],
                 src_transform=enmap_transform,
                 src_crs=enmap_crs,
                 dst_transform=transform,
                 dst_crs=target_crs,
                 resampling=Resampling.nearest)
-        
-        enmap_image = enmap_image_reprojected
-        enmap_transform = transform
-
+    
+    enmap_image = clipped_image_reprojected
+    enmap_transform = transform
+    
     # Step 2: Read ESA WorldCover Data and clip to EnMAP extent
     with rasterio.open(esa_worldcover_path) as wc_src:
         wc_image = wc_src.read(1)  # Read the first band
         wc_transform = wc_src.transform
         wc_crs = wc_src.crs
         print(f"CRS of the WorldCover data: {wc_crs}")
+        
+        gdf_polygon = gdf_polygon.to_crs(target_crs)
+
+        wc_image, wc_transform = mask(
+            dataset=wc_src,
+            shapes=gdf_polygon.geometry,
+            crop=True
+        )
 
         # Reproject WorldCover data to target CRS
         transform, width, height = calculate_default_transform(
@@ -109,8 +149,12 @@ def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=F
         # Step 3: Plot the Data Overlaid
         fig, ax = plt.subplots(figsize=(10, 10))
 
+        vmin = -200 # np.percentile(enmap_image[0], 15)
+        vmax = 300 #np.percentile(enmap_image[0], 85)
+        print(f"Vmin: {vmin}, Vmax: {vmax}")
+
         # Plot EnMAP data
-        enmap_plot = ax.imshow(enmap_image[0], cmap='gray', extent=enmap_extent, alpha=0.7, vmin=-50, vmax=3000)
+        enmap_plot = ax.imshow(enmap_image[0], cmap='gray', extent=enmap_extent, alpha=0.7, vmin=vmin, vmax=vmax)
 
         # Plot WorldCover data, limited to the EnMAP extent
         wc_plot = ax.imshow(wc_out_image, cmap='tab10', extent=wc_extent, alpha=0.3)
@@ -152,8 +196,12 @@ def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=F
         # Plot the new y data
         fig, ax = plt.subplots(figsize=(10, 10))
 
+        vmin = -200 # np.percentile(enmap_image[0], 15)
+        vmax = 300 #np.percentile(enmap_image[0], 85)
+        print(f"Vmin: {vmin}, Vmax: {vmax}")
+
         # Plot EnMAP data for reference
-        ax.imshow(enmap_image[0], cmap='gray', extent=enmap_extent, alpha=0.7)
+        ax.imshow(enmap_image[0], cmap='gray', extent=enmap_extent, alpha=0.7, vmin=vmin, vmax=vmax)
 
         # Plot the new y data
         y_plot = ax.imshow(label_array, cmap='tab10', extent=enmap_extent, alpha=0.3)

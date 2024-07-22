@@ -39,7 +39,8 @@ testRatio = 0.25
 PATCH_SIZE = 1
 
 #read files
-X, y = read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=False)
+X, y = read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=True)
+exit()
 unique_labels = np.unique(y)
 n_classes = len(unique_labels)
 uniqueLabels, labelCounts = np.unique(y, return_counts=True)

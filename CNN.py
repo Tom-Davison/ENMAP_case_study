@@ -96,7 +96,6 @@ def predict_CNN(model, X, y, unit_class_mapping, class_mapping, PATCH_SIZE):
         
         class_counts[true_label]['total'] += 1
         if true_label == predicted_label:
-            print('True (match)')
             class_counts[true_label]['true_positive'] += 1
 
     # Calculate and print accuracy per class
