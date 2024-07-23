@@ -122,9 +122,17 @@ def process_data(X, y, numComponents=30, windowSize=1, testRatio=0.25, PATCH_SIZ
     X_train, X_test, y_train, y_test = splitTrainTestSet(XPatches, yPatches, testRatio)
     print("Augmenting Data")
     # X_train = AugmentData(X_train)
+
     X_train = X_train.reshape(X_train.shape[0], X_train.shape[3])
+    X_test = X_test.reshape(X_test.shape[0], X_test.shape[3])
+
     y_train = k_utils.to_categorical(y_train)
+    y_test = k_utils.to_categorical(y_test)
+
     X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
+    X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+    
     print("X_train shape: ", X_train.shape)
     print("y_train shape: ", y_train.shape)
     return X_train, X_test, y_train, y_test, X
+

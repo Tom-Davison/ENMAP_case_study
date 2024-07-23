@@ -25,6 +25,12 @@ def Patch(data, height_index, width_index, PATCH_SIZE):
 
 def train_test_CNN(X_train, y_train, X_test, y_test, n_classes):
 
+    print("X_train shape: ", X_train.shape)
+    print("y_train shape: ", y_train.shape)
+    print("X_test shape: ", X_test.shape)
+    print("y_test shape: ", y_test.shape)
+
+
     print("Making Model")
     model = Sequential()
     model.add(
@@ -42,13 +48,13 @@ def train_test_CNN(X_train, y_train, X_test, y_test, n_classes):
     model.add(MaxPooling1D(pool_size=2))
     model.add(Conv1D(filters=128, kernel_size=3, activation="relu", padding="same"))
     model.add(BatchNormalization())
-    model.add(Conv1D(filters=256, kernel_size=3, activation="relu", padding="same"))
-    model.add(BatchNormalization())
+    #model.add(Conv1D(filters=256, kernel_size=3, activation="relu", padding="same"))
+    #model.add(BatchNormalization())
     model.add(MaxPooling1D(pool_size=2))
     model.add(Flatten())
-    model.add(Dense(units=256, activation="relu"))
-    model.add(BatchNormalization())
-    model.add(Dropout(0.4))
+    #model.add(Dense(units=256, activation="relu"))
+    #model.add(BatchNormalization())
+    #model.add(Dropout(0.4))
     model.add(Dense(units=128, activation="relu"))
     model.add(BatchNormalization())
     model.add(Dropout(0.3))
@@ -70,8 +76,8 @@ def train_test_CNN(X_train, y_train, X_test, y_test, n_classes):
     model.fit(
         X_train,
         y_train,
-        batch_size=64,
-        epochs=100,
+        batch_size=2048,
+        epochs=1,
         verbose=1,
         validation_data=(X_test, y_test),
         callbacks=[reduce_lr, early_stop],

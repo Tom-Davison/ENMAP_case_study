@@ -4,6 +4,7 @@ from keras import backend as K
 from read_files import read_files
 from process_files import process_data
 from CNN import train_test_CNN, predict_CNN
+from cluster_tools import cluster_image
 
 # import tensorflow_probability as tfp
 # import warnings
@@ -44,6 +45,9 @@ PATCH_SIZE = 1
 # read files
 X, y = read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=False)
 
+cluster_image(X, y)
+exit()
+
 unique_labels = np.unique(y)
 n_classes = len(unique_labels)
 
@@ -82,8 +86,14 @@ enmap_metadata_path = "data/ENMAP01-____L2A-DT0000002446_20220810T112429Z_002_V0
 esa_worldcover_path = "data/ESA_WorldCover_10m_2021_v200_N51E006_Map.tif"
 
 X, y = read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=False)
+
 unique_labels = np.unique(y)
 n_classes = len(unique_labels)
+
+y_filtered = y[(y != -1) & (y != 0)]
+unique_labels_filtered = np.unique(y_filtered)
+n_classes_filtered = len(unique_labels_filtered)
+
 uniqueLabels, labelCounts = np.unique(y, return_counts=True)
 print("Unique Labels are: ", uniqueLabels)
 print("The number of labels is: ", labelCounts + 1)
