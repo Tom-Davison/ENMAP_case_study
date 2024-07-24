@@ -12,9 +12,28 @@ from shapely.geometry import Polygon
 import geopandas as gpd
 import xml.etree.ElementTree as ET
 from rasterio.plot import show
+import config
 
+def standardise_images(plot=False):
+    for entry_name, paths in config.enmap_data.items():
+        image_path = paths["image"]
+        metadata_path = paths["metadata"]
+        reference_path = paths["reference"]
+        area_code = paths["area_code"]
 
-def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=False):
+        print(f"Processing {entry_name}:")
+        read_and_convert_files(image_path, metadata_path, reference_path, area_code, plot=plot)
+
+def save_arrays(X, y, base_filename):
+    np.savez(f"data/training_data/cleaned_{base_filename}.npz", X=X, y=y)
+
+def load_arrays(base_filename):
+    data = np.load(f"data/training_data/cleaned_{base_filename}.npz")
+    X = data['X']
+    y = data['y']
+    return X, y
+
+def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, area_code, plot=False):
     target_crs = "EPSG:4326"  # Define the target CRS (WGS 84)
 
     # Read XML for boundary
@@ -149,7 +168,7 @@ def read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=F
     print(f"Total pixels: {X.shape[0] * X.shape[1]}")
     print(f"Valid pixels: {np.sum(valid_mask)}")
 
-    return masked_X, masked_y
+    save_arrays(masked_X, masked_y, area_code)
 
 
 def create_label_array(

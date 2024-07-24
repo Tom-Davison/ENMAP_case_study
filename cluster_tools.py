@@ -4,8 +4,21 @@ import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.impute import SimpleImputer
 
-def cluster_image(X, y):
-    # Step 1: Reshape the data for clustering
+import config
+from read_files import load_arrays
+
+def cluster_image():
+    true_count = sum(1 for paths in config.enmap_data.values() if paths.get('cluster', False))
+    if true_count == 1:
+        area_code = None
+        for paths in config.enmap_data.values():
+            if paths.get("cluster", False):
+                area_code = paths.get("area_code")
+                break
+        X, y = load_arrays(area_code)
+    else:
+        raise ValueError("Only one image should be marked for clustering in the current setup")
+
     num_rows, num_cols, num_bands = X.shape
     X_reshaped = X.reshape((num_rows * num_cols, num_bands))
     y_reshaped = y.flatten()

@@ -5,6 +5,8 @@ from sklearn.decomposition import PCA
 import random
 import scipy
 
+import config
+from read_files import load_arrays
 
 def splitTrainTestSet(X, y, testRatio=0.25):
     X_train, X_test, y_train, y_test = train_test_split(
@@ -109,30 +111,42 @@ def AugmentData(X_train):
     return X_train
 
 
-def process_data(X, y, numComponents=30, windowSize=1, testRatio=0.25, PATCH_SIZE=1):
+def process_data():
 
-    print("Doing PCA")
-    X, pca = applyPCA(X, y, numComponents=numComponents)
-    print("Extracting Patches")
-    XPatches, yPatches = createPatches(X, y, windowSize=1)
-    print("Oversampling Weak Classes")
-    XPatches, yPatches = oversampleWeakClasses(XPatches, yPatches)
-    print(XPatches.shape, yPatches.shape)
-    print("Splitting Train Test Set")
-    X_train, X_test, y_train, y_test = splitTrainTestSet(XPatches, yPatches, testRatio)
-    print("Augmenting Data")
-    # X_train = AugmentData(X_train)
+    for paths in config.enmap_data.values():
+        if paths["usage"] == "training":
+            X, y = load_arrays(paths["area_code"])
 
-    X_train = X_train.reshape(X_train.shape[0], X_train.shape[3])
-    X_test = X_test.reshape(X_test.shape[0], X_test.shape[3])
+        uniqueLabels, labelCounts = np.unique(y, return_counts=True)
+        print("Unique Labels are: ", uniqueLabels)
+        print("The number of labels is: ", labelCounts + 1)
 
-    y_train = k_utils.to_categorical(y_train)
-    y_test = k_utils.to_categorical(y_test)
+        print("Doing PCA")
+        X = applyPCA(X, y, numComponents=config.numComponents)
+        print(X)
+        print("X shape after PCA: ", X.shape)
+        print("Extracting Patches")
+        XPatches, yPatches = createPatches(X, y, windowSize=1)
+        print(XPatches.shape, yPatches.shape)
+        exit()
+        print("Oversampling Weak Classes")
+        XPatches, yPatches = oversampleWeakClasses(XPatches, yPatches)
+        print(XPatches.shape, yPatches.shape)
+        print("Splitting Train Test Set")
+        X_train, X_test, y_train, y_test = splitTrainTestSet(XPatches, yPatches, config.testRatio)
+        print("Augmenting Data")
+        # X_train = AugmentData(X_train)
 
-    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
-    X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
-    
-    print("X_train shape: ", X_train.shape)
-    print("y_train shape: ", y_train.shape)
-    return X_train, X_test, y_train, y_test, X
+        X_train = X_train.reshape(X_train.shape[0], X_train.shape[3])
+        X_test = X_test.reshape(X_test.shape[0], X_test.shape[3])
+
+        y_train = k_utils.to_categorical(y_train)
+        y_test = k_utils.to_categorical(y_test)
+
+        X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
+        X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+        
+        print("X_train shape: ", X_train.shape)
+        print("y_train shape: ", y_train.shape)
+        return X_train, X_test, y_train, y_test, X
 
