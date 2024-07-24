@@ -170,3 +170,6 @@ cython_debug/
 *.pyc
 *.npz
 data/
+# Ignore __pycache__ directories
+__pycache__/
+*.pyc
