@@ -25,10 +25,10 @@ def standardise_images(plot=False):
         read_and_convert_files(image_path, metadata_path, reference_path, area_code, plot=plot)
 
 def save_arrays(X, y, base_filename):
-    np.savez(f"data/training_data/cleaned_{base_filename}.npz", X=X, y=y)
+    np.savez(f"data/cleaned_{base_filename}.npz", X=X, y=y)
 
 def load_arrays(base_filename):
-    data = np.load(f"data/training_data/cleaned_{base_filename}.npz")
+    data = np.load(f"data/cleaned_{base_filename}.npz")
     X = data['X']
     y = data['y']
     return X, y

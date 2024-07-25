@@ -1,37 +1,59 @@
 from keras import utils as k_utils
 from sklearn.model_selection import train_test_split
 import numpy as np
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, KernelPCA
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 import random
 import scipy
 import tqdm
+import joblib
 
 import config
 from read_files import load_arrays
 
 
-def oversample_weak_classes(X, y):
-    # Flatten y to 1D array for easier processing
-    
+def oversample_and_cap_classes(X, y, class_cap):
     unique_labels, label_counts = np.unique(y, return_counts=True)
-    max_count = np.max(label_counts)
-    label_inverse_ratios = max_count / label_counts
     
-    # Initialize new_X and new_Y with the oversampled data of the first label
-    new_X = X[y == unique_labels[0], :].repeat(round(label_inverse_ratios[0]), axis=0)
-    new_Y = y[y == unique_labels[0]].repeat(round(label_inverse_ratios[0]), axis=0)
+    new_X = []
+    new_Y = []
     
-    # Process the remaining labels
-    for label, label_inverse_ratio in zip(unique_labels[1:], label_inverse_ratios[1:]):
-        class_X = X[y == label, :].repeat(round(label_inverse_ratio), axis=0)
-        class_Y = y[y == label].repeat(round(label_inverse_ratio), axis=0)
-        new_X = np.concatenate((new_X, class_X))
-        new_Y = np.concatenate((new_Y, class_Y))
+    for label, count in zip(unique_labels, label_counts):
+        class_X = X[y == label]
+        class_Y = y[y == label]
+        
+        if count > class_cap:
+            # Randomly sample class_cap samples
+            indices = np.random.choice(count, class_cap, replace=False)
+            class_X = class_X[indices]
+            class_Y = class_Y[indices]
+        elif count < class_cap:
+            # Oversample to reach class_cap
+            repeats = class_cap // count
+            remainder = class_cap % count
+            class_X = np.repeat(class_X, repeats, axis=0)
+            class_Y = np.repeat(class_Y, repeats)
+            
+            if remainder > 0:
+                indices = np.random.choice(count, remainder, replace=False)
+                class_X = np.vstack((class_X, class_X[indices]))
+                class_Y = np.concatenate((class_Y, class_Y[indices]))
+        
+        new_X.append(class_X)
+        new_Y.append(class_Y)
+        
+        # Print the ratio of values in the class vs class_cap
+        ratio = count / class_cap
+        print(f"Class {label}: Original count = {count}, Ratio to class_cap = {ratio:.2f}")
+    
+    new_X = np.vstack(new_X)
+    new_Y = np.concatenate(new_Y)
     
     # Shuffle the new data
+    print("Shuffling data")
     np.random.seed(seed=42)
     rand_perm = np.random.permutation(new_Y.shape[0])
-    new_X = new_X[rand_perm, :]
+    new_X = new_X[rand_perm]
     new_Y = new_Y[rand_perm]
     
     # Convert new_Y to integer type
@@ -39,32 +61,11 @@ def oversample_weak_classes(X, y):
     
     # Print unique labels and their counts
     unique_labels, label_counts = np.unique(new_Y, return_counts=True)
-    print("Unique Labels are: ", unique_labels)
-    print("The number of augmented labels is: ", label_counts + 1)
+    print("\nAfter balancing:")
+    print("Unique Labels are:", unique_labels)
+    print("The number of samples per class is:", label_counts)
     
     return new_X, new_Y
-
-
-def apply_pca(X, y, num_components=30):
-    X_reshaped = np.reshape(X, (-1, X.shape[2]))
-    y_reshaped = y.flatten()
-    
-    valid_mask = (
-        (~np.isnan(X_reshaped).any(axis=1)) & (y_reshaped != -1) & (y_reshaped != 0)
-    )
-    
-    X_valid = X_reshaped[valid_mask]
-    
-    pca = PCA(n_components=num_components, whiten=True)
-    X_pca = pca.fit_transform(X_valid)
-    
-    new_X = np.full((X_reshaped.shape[0], num_components), np.nan)
-    
-    new_X[valid_mask] = X_pca
-    
-    new_X = np.reshape(new_X, (X.shape[0], X.shape[1], num_components))
-    
-    return new_X
 
 
 def padWithZeros(X, margin=2):
@@ -99,69 +100,68 @@ def createPatches(X, y, windowSize=1, removeZeroLabels=True):
     return patchesData, patchesLabels
 
 
-def AugmentData(X_train):
-    for i in range(int(X_train.shape[0] / 2)):
-        patch = X_train[i, :, :, :]
-        num = random.randint(0, 2)
-        if num == 0:
-            flipped_patch = np.flipud(patch)
-        if num == 1:
-            flipped_patch = np.fliplr(patch)
-        if num == 2:
-            no = random.randrange(-180, 180, 30)
-            flipped_patch = scipy.ndimage.rotate(
-                patch,
-                no,
-                axes=(1, 0),
-                reshape=False,
-                output=None,
-                order=3,
-                mode="constant",
-                cval=0.0,
-                prefilter=False,
-            )
-    patch2 = flipped_patch
-    X_train[i, :, :, :] = patch2
-    return X_train
+def process_data(regenerate_library=False):
 
-
-def process_data():
-
-    X_list = []
-    y_list = []
-    for paths in tqdm.tqdm(config.enmap_data.values(), desc="Loading Data with PCA"):
-        if paths["usage"] == "training":
-            X, y = load_arrays(paths["area_code"])
+    pca_saved = False
+    KPCA_saved = False
+    if regenerate_library:
+        X_list = []
+        y_list = []
+        for paths in tqdm.tqdm(config.enmap_data.values(), desc="Loading Data with Decomposition"):
+            if paths["usage"] == "training":
+                X, y = load_arrays(paths["area_code"])
+            
+                y = y.flatten()
+                
+                valid_mask = (y != -1) & (y != 0)
+                X_filtered = X.reshape(-1, X.shape[-1])[valid_mask]
+                y_filtered = y[valid_mask]
+                """
+                if not pca_saved:
+                    pca = PCA(n_components=config.num_components, whiten=True)
+                    X_decomp = pca.fit_transform(X_filtered)
+                    joblib.dump(pca, 'data/pca_model.pkl')
+                else:
+                    pca = joblib.load('data/pca_model.pkl')
+                    X_decomp = pca.fit_transform(X_filtered)
+                """
+                if not KPCA_saved:
+                    kpca = KernelPCA(n_components=config.num_components, kernel='rbf')
+                    X_decomp = kpca.fit_transform(X_filtered)
+                    joblib.dump(kpca, 'data/kpca_model.pkl')
+                else:
+                    kpca = joblib.load('data/kpca_model.pkl')
+                    X_decomp = kpca.transform(X_filtered)
+                
+                X_list.append(X_decomp)
+                y_list.append(y_filtered.reshape(-1, 1))
         
-            y = y.flatten()
-            
-            valid_mask = (y != -1) & (y != 0)
-            X_filtered = X.reshape(-1, X.shape[-1])[valid_mask]
-            y_filtered = y[valid_mask]
-            
-            pca = PCA(n_components=config.num_components, whiten=True)
-            X_pca = pca.fit_transform(X_filtered)
-            
-            X_list.append(X_pca)
-            y_list.append(y_filtered.reshape(-1, 1))
+        X_conc = np.concatenate(X_list)
+        y_conc = np.concatenate(y_list)
+        y_conc = y_conc.flatten()
 
-    X_conc = np.concatenate(X_list)
-    y_conc = np.concatenate(y_list)
-    y_conc = y_conc.flatten()
+        print("Done loading data")
+        unique_labels = np.unique(y_conc)
+        print("Unique Labels are: ", unique_labels)
+        missing_classes = set(config.class_mapping.keys()) - set(unique_labels)
 
-    print("Done loading data")
-    unique_labels = np.unique(y_conc)
-    print("Unique Labels are: ", unique_labels)
-    missing_classes = set(config.class_mapping.keys()) - set(unique_labels)
+        if missing_classes:
+            raise ValueError(
+                f"CRITICAL: Some classes are missing in the data! Missing classes: {missing_classes}"
+            )
 
-    if missing_classes:
-        raise ValueError(
-            f"CRITICAL: Some classes are missing in the data! Missing classes: {missing_classes}"
-        )
+        print("Oversampling Weak Classes")
+        X_conc_samp, y_conc_samp = oversample_and_cap_classes(X_conc, y_conc, config.sample_cap)
 
-    print("Oversampling Weak Classes")
-    X_conc_samp, y_conc_samp = oversample_weak_classes(X_conc, y_conc)
-    #save training library here
+        print("Saving training library:")
+        np.save("data/X_train.npy", X_conc_samp)
+        np.save("data/y_train.npy", y_conc_samp)
+    
+    else:
+        print("Loading training library:")
+        X_conc_samp = np.load("data/X_train.npy")
+        y_conc_samp = np.load("data/y_train.npy")
+
     print("Splitting Train Test Set")
     X_train, X_test, y_train, y_test = train_test_split(X_conc_samp, y_conc_samp, test_size=0.2, stratify=y_conc_samp)
 

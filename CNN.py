@@ -1,4 +1,7 @@
 import matplotlib.pyplot as plt
+import tqdm
+import joblib
+from sklearn.decomposition import PCA
 from keras.models import Sequential
 from keras.layers import (
     Dense,
@@ -14,6 +17,7 @@ import matplotlib.colors as mcolors
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
 
 import config
+from read_files import load_arrays
 
 def Patch(data, height_index, width_index, PATCH_SIZE):
     # transpose_array = data.transpose((2,0,1))
@@ -39,7 +43,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test):
             filters=32,
             kernel_size=3,
             activation="relu",
-            input_shape=(30, 1),
+            input_shape=(config.num_components, 1),
             padding="same",
         )
     )
@@ -84,10 +88,40 @@ def train_test_CNN(X_train, y_train, X_test, y_test):
         callbacks=[reduce_lr, early_stop],
     )
 
+    #export model
+    model.save("data/CNN_enmap_worldcover.h5")
     return model
 
 
 def predict_CNN(model):
+    for paths in tqdm.tqdm(config.enmap_data.values(), desc="Loading Data with PCA"):
+        if paths["usage"] == "testing":
+            X, y = load_arrays(paths["area_code"])
+            print("X shape: ", X.shape)
+            print("y shape: ", y.shape)
+            
+            # Create the valid mask
+            valid_mask = (y != -1) & (y != 0)
+            
+            # Reshape X and apply the mask
+            X_reshaped = X.reshape(-1, X.shape[-1])
+            valid_mask_flattened = valid_mask.flatten()
+            X_filtered = X_reshaped[valid_mask_flattened]
+            y_filtered = y[valid_mask]
+
+            print("X_filtered shape: ", X_filtered.shape)
+            print("y_filtered shape: ", y_filtered.shape)
+            
+            """
+            pca = joblib.load('data/pca_model.pkl')
+            X_decomp = pca.transform(X_filtered)  # Use transform instead of fit_transform
+            """
+            kpca = joblib.load('data/kpca_model.pkl')
+            X_decomp = kpca.transform(X_filtered)
+            
+            print("X_decomp shape: ", X_decomp.shape)
+            break
+    
     # Create a mask for valid labels (not -1 or 0)
     valid_mask = (y != -1) & (y != 0)
 
@@ -95,54 +129,41 @@ def predict_CNN(model):
     y_consecutive = np.full(y.shape, -1, dtype=int)  # Fill with -1 initially
     y_consecutive[valid_mask] = (y[valid_mask] / 10) - 1
 
-    cmap = plt.cm.get_cmap("tab10", len(unit_class_mapping))
+    cmap = plt.cm.get_cmap("tab10", len(config.unit_class_mapping))
     norm = mcolors.BoundaryNorm(
-        boundaries=[key - 0.5 for key in sorted(unit_class_mapping.keys())]
-        + [max(unit_class_mapping.keys()) + 0.5],
-        ncolors=len(unit_class_mapping),
+        boundaries=[key - 0.5 for key in sorted(config.unit_class_mapping.keys())]
+        + [max(config.unit_class_mapping.keys()) + 0.5],
+        ncolors=len(config.unit_class_mapping),
     )
 
-    unique_labels = sorted(unit_class_mapping.keys())
-    consecutive_to_label = {i: label for i, label in enumerate(unique_labels)}
+    unique_labels = sorted(config.unit_class_mapping.keys())
 
     height, width = y.shape
-
     print(height, width)
 
-    patches = []
-    positions = []
     outputs = np.full((height, width), -1)  # Fill with -1 initially
 
-    for i in range(height):
-        for j in range(width):
-            if valid_mask[i, j]:
-                image_patch = Patch(X, i, j, PATCH_SIZE)
-                patches.append(
-                    image_patch.reshape(
-                        1, image_patch.shape[2], image_patch.shape[0]
-                    ).astype("float32")
-                )
-                positions.append((i, j))
+    # Use X_pca directly as pixels and get positions of valid pixels
+    pixels = X_decomp
+    positions = np.argwhere(valid_mask)
 
-    if patches:
-        patches = np.concatenate(patches, axis=0)
-        predictions = model.predict(patches)
+    if len(pixels) > 0:
+        predictions = model.predict(pixels)
 
         for prediction, position in zip(predictions, positions):
-            outputs[position[0], position[1]] = np.argmax(prediction)  # + 1
+            outputs[position[0], position[1]] = np.argmax(prediction)
 
         # Convert predictions to class labels
         predicted_labels = np.argmax(predictions, axis=1)
-        # predicted_labels = predicted_labels -
 
         # Check unique labels and their counts
-        uniqueLabels, labelCounts = np.unique(predicted_labels, return_counts=True)
-        print("Unique Labels are: ", uniqueLabels)
-        print("The number of predicted labels is: ", labelCounts)
+        unique_labels, label_counts = np.unique(predicted_labels, return_counts=True)
+        print("Unique Labels are: ", unique_labels)
+        print("The number of predicted labels is: ", label_counts)
 
         # Initialize dictionaries to count true positives and total samples per class
         class_counts = {
-            key: {"true_positive": 0, "total": 0} for key in unit_class_mapping.keys()
+            key: {"true_positive": 0, "total": 0} for key in config.unit_class_mapping.keys()
         }
 
         # Iterate over the true labels and predictions
@@ -163,7 +184,7 @@ def predict_CNN(model):
             else:
                 accuracy = 0
             print(
-                f"Accuracy for {class_mapping[unit_class_mapping[class_id]]}: {accuracy:.2f}"
+                f"Accuracy for {config.class_mapping[config.unit_class_mapping[class_id]]}: {accuracy:.2f}"
             )
 
         # Create a mask for correct (green) and incorrect (red) labels
@@ -185,11 +206,11 @@ def predict_CNN(model):
         # Plot predicted image
         plt.subplot(1, 2, 1)
         predict_image = plt.imshow(outputs, cmap=cmap, norm=norm)
-        cbar = plt.colorbar(predict_image, ticks=sorted(unit_class_mapping.keys()))
+        cbar = plt.colorbar(predict_image, ticks=sorted(config.unit_class_mapping.keys()))
         cbar.ax.set_yticklabels(
             [
-                class_mapping[unit_class_mapping[key]]
-                for key in sorted(unit_class_mapping.keys())
+                config.class_mapping[config.unit_class_mapping[key]]
+                for key in sorted(config.unit_class_mapping.keys())
             ]
         )
         plt.title("Predicted Image")

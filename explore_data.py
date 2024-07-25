@@ -1,6 +1,6 @@
 import numpy as np
 from keras import backend as K
-
+from keras.models import load_model
 from read_files import standardise_images
 from process_files import process_data
 from CNN import train_test_CNN, predict_CNN
@@ -14,25 +14,28 @@ K.set_image_data_format("channels_last")
 
 # class_index_mapping = {i: key for i, key in enumerate(class_mapping.keys())}
 # class_reverse_index_mapping = {key: i for i, key in enumerate(class_mapping.keys())}
-unit_class_mapping = {
-    new_index: original_key
-    for new_index, original_key in enumerate(config.class_mapping.keys())
-}
+
 
 # read files
 reconvert_files = False
 if reconvert_files:
-    standardise_images(plot=False)
+    standardise_images(plot=True)
 
-
+##create clusters through kmeans
 #cluster_image()
 
 # processing
-X_train, X_test, y_train, y_test= process_data()
+X_train, X_test, y_train, y_test= process_data(regenerate_library=True)
 
 
 # modelling
-model = train_test_CNN(X_train, y_train, X_test, y_test)
+retrain_model = True
+if retrain_model:
+    model = train_test_CNN(X_train, y_train, X_test, y_test)
+else:
+    print("Loading model")
+    model = load_model("data/CNN_enmap_worldcover.h5")
+
 predict_CNN(model) #, X, y, unit_class_mapping, config.class_mapping)
 exit()
 
