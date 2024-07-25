@@ -38,7 +38,4 @@ enmap_data = {
     }
 }
 
-numComponents = 30
-windowSize = 1
-testRatio = 0.25
-PATCH_SIZE = 1
+num_components = 30

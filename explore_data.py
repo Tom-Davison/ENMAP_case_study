@@ -28,19 +28,13 @@ if reconvert_files:
 #cluster_image()
 
 # processing
-X_train, X_test, y_train, y_test, X = process_data()
+X_train, X_test, y_train, y_test= process_data()
 
-"""
-missing_classes = set(config.class_mapping.keys()) - set(unique_labels)
-if missing_classes:
-    raise ValueError(
-        f"CRITICAL: Some classes are missing in the data! Missing classes: {missing_classes}"
-    )
-"""
+
 # modelling
-model = train_test_CNN(X_train, y_train, X_test, y_test, n_classes_filtered)
-predict_CNN(model, X, y, unit_class_mapping, config.class_mapping, PATCH_SIZE)
-
+model = train_test_CNN(X_train, y_train, X_test, y_test)
+predict_CNN(model) #, X, y, unit_class_mapping, config.class_mapping)
+exit()
 
 # testing on novel data
 enmap_data_path = "data/ENMAP01-____L2A-DT0000002446_20220810T112429Z_002_V010303_20230922T131813Z-SPECTRAL_IMAGE.tif"

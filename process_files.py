@@ -4,53 +4,67 @@ import numpy as np
 from sklearn.decomposition import PCA
 import random
 import scipy
+import tqdm
 
 import config
 from read_files import load_arrays
 
-def splitTrainTestSet(X, y, testRatio=0.25):
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=testRatio, random_state=345, stratify=y
-    )
-    return X_train, X_test, y_train, y_test
 
-
-def oversampleWeakClasses(X, y):
-    uniqueLabels, labelCounts = np.unique(y, return_counts=True)
-    maxCount = np.max(labelCounts)
-    labelInverseRatios = maxCount / labelCounts
-    newX = X[y == uniqueLabels[0], :].repeat(round(labelInverseRatios[0]), axis=0)
-    newY = y[y == uniqueLabels[0]].repeat(round(labelInverseRatios[0]), axis=0)
-    for label, labelInverseRatio in zip(uniqueLabels[1:], labelInverseRatios[1:]):
-        cX = X[y == label, :].repeat(round(labelInverseRatio), axis=0)
-        cY = y[y == label].repeat(round(labelInverseRatio), axis=0)
-        newX = np.concatenate((newX, cX))
-        newY = np.concatenate((newY, cY))
+def oversample_weak_classes(X, y):
+    # Flatten y to 1D array for easier processing
+    
+    unique_labels, label_counts = np.unique(y, return_counts=True)
+    max_count = np.max(label_counts)
+    label_inverse_ratios = max_count / label_counts
+    
+    # Initialize new_X and new_Y with the oversampled data of the first label
+    new_X = X[y == unique_labels[0], :].repeat(round(label_inverse_ratios[0]), axis=0)
+    new_Y = y[y == unique_labels[0]].repeat(round(label_inverse_ratios[0]), axis=0)
+    
+    # Process the remaining labels
+    for label, label_inverse_ratio in zip(unique_labels[1:], label_inverse_ratios[1:]):
+        class_X = X[y == label, :].repeat(round(label_inverse_ratio), axis=0)
+        class_Y = y[y == label].repeat(round(label_inverse_ratio), axis=0)
+        new_X = np.concatenate((new_X, class_X))
+        new_Y = np.concatenate((new_Y, class_Y))
+    
+    # Shuffle the new data
     np.random.seed(seed=42)
-    rand_perm = np.random.permutation(newY.shape[0])
-    newX = newX[rand_perm, :]
-    newY = newY[rand_perm]
-    newY = newY.astype(int)
-    uniqueLabels, labelCounts = np.unique(newY, return_counts=True)
-    print("Unique Labels are: ", uniqueLabels)
-    print("The number of augmented labels is: ", labelCounts + 1)
-    return newX, newY
+    rand_perm = np.random.permutation(new_Y.shape[0])
+    new_X = new_X[rand_perm, :]
+    new_Y = new_Y[rand_perm]
+    
+    # Convert new_Y to integer type
+    new_Y = new_Y.astype(int)
+    
+    # Print unique labels and their counts
+    unique_labels, label_counts = np.unique(new_Y, return_counts=True)
+    print("Unique Labels are: ", unique_labels)
+    print("The number of augmented labels is: ", label_counts + 1)
+    
+    return new_X, new_Y
 
 
-def applyPCA(X, y, numComponents=75):
+def apply_pca(X, y, num_components=30):
     X_reshaped = np.reshape(X, (-1, X.shape[2]))
     y_reshaped = y.flatten()
+    
     valid_mask = (
         (~np.isnan(X_reshaped).any(axis=1)) & (y_reshaped != -1) & (y_reshaped != 0)
     )
+    
     X_valid = X_reshaped[valid_mask]
-    pca = PCA(n_components=numComponents, whiten=True)
+    
+    pca = PCA(n_components=num_components, whiten=True)
     X_pca = pca.fit_transform(X_valid)
-    newX = np.full((X_reshaped.shape[0], numComponents), np.nan)
-    newX[valid_mask] = X_pca
-    newX = np.reshape(newX, (X.shape[0], X.shape[1], numComponents))
-
-    return newX, pca
+    
+    new_X = np.full((X_reshaped.shape[0], num_components), np.nan)
+    
+    new_X[valid_mask] = X_pca
+    
+    new_X = np.reshape(new_X, (X.shape[0], X.shape[1], num_components))
+    
+    return new_X
 
 
 def padWithZeros(X, margin=2):
@@ -113,40 +127,49 @@ def AugmentData(X_train):
 
 def process_data():
 
-    for paths in config.enmap_data.values():
+    X_list = []
+    y_list = []
+    for paths in tqdm.tqdm(config.enmap_data.values(), desc="Loading Data with PCA"):
         if paths["usage"] == "training":
             X, y = load_arrays(paths["area_code"])
-
-        uniqueLabels, labelCounts = np.unique(y, return_counts=True)
-        print("Unique Labels are: ", uniqueLabels)
-        print("The number of labels is: ", labelCounts + 1)
-
-        print("Doing PCA")
-        X = applyPCA(X, y, numComponents=config.numComponents)
-        print(X)
-        print("X shape after PCA: ", X.shape)
-        print("Extracting Patches")
-        XPatches, yPatches = createPatches(X, y, windowSize=1)
-        print(XPatches.shape, yPatches.shape)
-        exit()
-        print("Oversampling Weak Classes")
-        XPatches, yPatches = oversampleWeakClasses(XPatches, yPatches)
-        print(XPatches.shape, yPatches.shape)
-        print("Splitting Train Test Set")
-        X_train, X_test, y_train, y_test = splitTrainTestSet(XPatches, yPatches, config.testRatio)
-        print("Augmenting Data")
-        # X_train = AugmentData(X_train)
-
-        X_train = X_train.reshape(X_train.shape[0], X_train.shape[3])
-        X_test = X_test.reshape(X_test.shape[0], X_test.shape[3])
-
-        y_train = k_utils.to_categorical(y_train)
-        y_test = k_utils.to_categorical(y_test)
-
-        X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
-        X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
         
-        print("X_train shape: ", X_train.shape)
-        print("y_train shape: ", y_train.shape)
-        return X_train, X_test, y_train, y_test, X
+            y = y.flatten()
+            
+            valid_mask = (y != -1) & (y != 0)
+            X_filtered = X.reshape(-1, X.shape[-1])[valid_mask]
+            y_filtered = y[valid_mask]
+            
+            pca = PCA(n_components=config.num_components, whiten=True)
+            X_pca = pca.fit_transform(X_filtered)
+            
+            X_list.append(X_pca)
+            y_list.append(y_filtered.reshape(-1, 1))
+
+    X_conc = np.concatenate(X_list)
+    y_conc = np.concatenate(y_list)
+    y_conc = y_conc.flatten()
+
+    print("Done loading data")
+    unique_labels = np.unique(y_conc)
+    print("Unique Labels are: ", unique_labels)
+    missing_classes = set(config.class_mapping.keys()) - set(unique_labels)
+
+    if missing_classes:
+        raise ValueError(
+            f"CRITICAL: Some classes are missing in the data! Missing classes: {missing_classes}"
+        )
+
+    print("Oversampling Weak Classes")
+    X_conc_samp, y_conc_samp = oversample_weak_classes(X_conc, y_conc)
+    #save training library here
+    print("Splitting Train Test Set")
+    X_train, X_test, y_train, y_test = train_test_split(X_conc_samp, y_conc_samp, test_size=0.2, stratify=y_conc_samp)
+
+    y_train_norm = (y_train // 10) - 1
+    y_test_norm = (y_test // 10) - 1
+
+    y_train = k_utils.to_categorical(y_train_norm)
+    y_test = k_utils.to_categorical(y_test_norm)
+
+    return X_train, X_test, y_train, y_test
 

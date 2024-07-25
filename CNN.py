@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.colors as mcolors
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
 
+import config
 
 def Patch(data, height_index, width_index, PATCH_SIZE):
     # transpose_array = data.transpose((2,0,1))
@@ -23,7 +24,7 @@ def Patch(data, height_index, width_index, PATCH_SIZE):
     return patch
 
 
-def train_test_CNN(X_train, y_train, X_test, y_test, n_classes):
+def train_test_CNN(X_train, y_train, X_test, y_test):
 
     print("X_train shape: ", X_train.shape)
     print("y_train shape: ", y_train.shape)
@@ -58,7 +59,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, n_classes):
     model.add(Dense(units=128, activation="relu"))
     model.add(BatchNormalization())
     model.add(Dropout(0.3))
-    model.add(Dense(n_classes, activation="softmax"))
+    model.add(Dense(len(config.class_mapping), activation="softmax"))
 
     optimizer = Adam(learning_rate=0.001)
     model.compile(
@@ -86,7 +87,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, n_classes):
     return model
 
 
-def predict_CNN(model, X, y, unit_class_mapping, class_mapping, PATCH_SIZE):
+def predict_CNN(model):
     # Create a mask for valid labels (not -1 or 0)
     valid_mask = (y != -1) & (y != 0)
 
