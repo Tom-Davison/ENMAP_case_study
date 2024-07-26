@@ -2,7 +2,7 @@ import numpy as np
 from keras import backend as K
 from keras.models import load_model
 from read_files import standardise_images
-from process_files import process_data
+from process_files import process_data, generate_decomposition
 from CNN import train_test_CNN, predict_CNN
 from cluster_tools import cluster_image
 import config
@@ -24,13 +24,14 @@ if reconvert_files:
 ##create clusters through kmeans
 #cluster_image()
 
-# processing
-X_train, X_test, y_train, y_test= process_data(regenerate_library=True)
-
+regenerate_decomposition = True
+if regenerate_decomposition:
+    generate_decomposition()
 
 # modelling
 retrain_model = True
 if retrain_model:
+    X_train, X_test, y_train, y_test= process_data(regenerate_library=True)
     model = train_test_CNN(X_train, y_train, X_test, y_test)
 else:
     print("Loading model")

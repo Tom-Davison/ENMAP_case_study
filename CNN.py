@@ -15,6 +15,8 @@ from keras.optimizers import SGD, Adam
 import numpy as np
 import matplotlib.colors as mcolors
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, balanced_accuracy_score
+import pandas as pd
 
 import config
 from read_files import load_arrays
@@ -53,16 +55,16 @@ def train_test_CNN(X_train, y_train, X_test, y_test):
     model.add(MaxPooling1D(pool_size=2))
     model.add(Conv1D(filters=128, kernel_size=3, activation="relu", padding="same"))
     model.add(BatchNormalization())
-    #model.add(Conv1D(filters=256, kernel_size=3, activation="relu", padding="same"))
-    #model.add(BatchNormalization())
+    model.add(Conv1D(filters=512, kernel_size=3, activation="relu", padding="same"))
+    model.add(BatchNormalization())
     model.add(MaxPooling1D(pool_size=2))
     model.add(Flatten())
-    #model.add(Dense(units=256, activation="relu"))
-    #model.add(BatchNormalization())
-    #model.add(Dropout(0.4))
-    model.add(Dense(units=128, activation="relu"))
+    model.add(Dense(units=256, activation="relu"))
     model.add(BatchNormalization())
     model.add(Dropout(0.3))
+    model.add(Dense(units=128, activation="relu"))
+    model.add(BatchNormalization())
+    model.add(Dropout(0.1))
     model.add(Dense(len(config.class_mapping), activation="softmax"))
 
     optimizer = Adam(learning_rate=0.001)
@@ -82,7 +84,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test):
         X_train,
         y_train,
         batch_size=2048,
-        epochs=1,
+        epochs=15,
         verbose=1,
         validation_data=(X_test, y_test),
         callbacks=[reduce_lr, early_stop],
@@ -112,12 +114,8 @@ def predict_CNN(model):
             print("X_filtered shape: ", X_filtered.shape)
             print("y_filtered shape: ", y_filtered.shape)
             
-            """
-            pca = joblib.load('data/pca_model.pkl')
+            pca = joblib.load('data/decomp_model.pkl')
             X_decomp = pca.transform(X_filtered)  # Use transform instead of fit_transform
-            """
-            kpca = joblib.load('data/kpca_model.pkl')
-            X_decomp = kpca.transform(X_filtered)
             
             print("X_decomp shape: ", X_decomp.shape)
             break
@@ -155,37 +153,32 @@ def predict_CNN(model):
 
         # Convert predictions to class labels
         predicted_labels = np.argmax(predictions, axis=1)
+        true_labels = y_consecutive[valid_mask].flatten()
 
-        # Check unique labels and their counts
-        unique_labels, label_counts = np.unique(predicted_labels, return_counts=True)
-        print("Unique Labels are: ", unique_labels)
-        print("The number of predicted labels is: ", label_counts)
+        # Calculate confusion matrix
+        cm = confusion_matrix(true_labels, predicted_labels)
 
-        # Initialize dictionaries to count true positives and total samples per class
-        class_counts = {
-            key: {"true_positive": 0, "total": 0} for key in config.unit_class_mapping.keys()
-        }
+        # Calculate precision, recall, and F1-score for each class
+        precision, recall, f1, support = precision_recall_fscore_support(true_labels, predicted_labels)
 
-        # Iterate over the true labels and predictions
-        for true_label, predicted_label in zip(
-            y_consecutive[valid_mask].flatten(), outputs[valid_mask].flatten()
-        ):
-            true_label = int(true_label)
-            predicted_label = int(predicted_label)
+        # Calculate balanced accuracy
+        balanced_acc = balanced_accuracy_score(true_labels, predicted_labels)
 
-            class_counts[true_label]["total"] += 1
-            if true_label == predicted_label:
-                class_counts[true_label]["true_positive"] += 1
+        # Create a DataFrame to display results
+        results = pd.DataFrame({
+            'Class': [config.class_mapping[config.unit_class_mapping[i]] for i in range(len(precision))],
+            'Precision': precision,
+            'Recall': recall,
+            'F1-score': f1,
+            'Support': support
+        })
 
-        # Calculate and print accuracy per class
-        for class_id, counts in class_counts.items():
-            if counts["total"] > 0:
-                accuracy = counts["true_positive"] / counts["total"]
-            else:
-                accuracy = 0
-            print(
-                f"Accuracy for {config.class_mapping[config.unit_class_mapping[class_id]]}: {accuracy:.2f}"
-            )
+        print("Performance Metrics per Class:")
+        print(results)
+        print(f"\nBalanced Accuracy: {balanced_acc:.4f}")
+
+        print("\nConfusion Matrix:")
+        print(cm)
 
         # Create a mask for correct (green) and incorrect (red) labels
         correct_mask = (y_consecutive == outputs) & valid_mask

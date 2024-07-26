@@ -1,12 +1,13 @@
 from keras import utils as k_utils
 from sklearn.model_selection import train_test_split
 import numpy as np
-from sklearn.decomposition import PCA, KernelPCA
+from sklearn.decomposition import PCA, KernelPCA, FastICA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 import random
 import scipy
 import tqdm
 import joblib
+from collections import defaultdict
 
 import config
 from read_files import load_arrays
@@ -102,13 +103,12 @@ def createPatches(X, y, windowSize=1, removeZeroLabels=True):
 
 def process_data(regenerate_library=False):
 
-    pca_saved = False
-    KPCA_saved = False
     if regenerate_library:
         X_list = []
         y_list = []
         for paths in tqdm.tqdm(config.enmap_data.values(), desc="Loading Data with Decomposition"):
             if paths["usage"] == "training":
+                print('Loading data for: ', paths["area_code"])
                 X, y = load_arrays(paths["area_code"])
             
                 y = y.flatten()
@@ -116,22 +116,10 @@ def process_data(regenerate_library=False):
                 valid_mask = (y != -1) & (y != 0)
                 X_filtered = X.reshape(-1, X.shape[-1])[valid_mask]
                 y_filtered = y[valid_mask]
-                """
-                if not pca_saved:
-                    pca = PCA(n_components=config.num_components, whiten=True)
-                    X_decomp = pca.fit_transform(X_filtered)
-                    joblib.dump(pca, 'data/pca_model.pkl')
-                else:
-                    pca = joblib.load('data/pca_model.pkl')
-                    X_decomp = pca.fit_transform(X_filtered)
-                """
-                if not KPCA_saved:
-                    kpca = KernelPCA(n_components=config.num_components, kernel='rbf')
-                    X_decomp = kpca.fit_transform(X_filtered)
-                    joblib.dump(kpca, 'data/kpca_model.pkl')
-                else:
-                    kpca = joblib.load('data/kpca_model.pkl')
-                    X_decomp = kpca.transform(X_filtered)
+                
+                print("Decomposing into components")
+                ica = joblib.load('data/decomp_model.pkl')
+                X_decomp = ica.transform(X_filtered)
                 
                 X_list.append(X_decomp)
                 y_list.append(y_filtered.reshape(-1, 1))
@@ -173,3 +161,59 @@ def process_data(regenerate_library=False):
 
     return X_train, X_test, y_train, y_test
 
+def build_balanced_sample(target_samples_per_class=10000, max_samples_per_image=100000):
+    all_samples = defaultdict(list)
+
+    for path in tqdm.tqdm(config.enmap_data.values(), desc="Loading Data for Decomposition"):
+        if path["usage"] == "training":
+            X, y = load_arrays(path["area_code"])
+            
+            y = y.flatten()
+            valid_mask = (y != -1) & (y != 0)
+            X_filtered = X.reshape(-1, X.shape[-1])[valid_mask]
+            y_filtered = y[valid_mask]
+            
+            if len(X_filtered) > max_samples_per_image:
+                indices = np.random.choice(len(X_filtered), max_samples_per_image, replace=False)
+                X_filtered = X_filtered[indices]
+                y_filtered = y_filtered[indices]
+            
+            for class_label in np.unique(y_filtered):
+                class_indices = np.where(y_filtered == class_label)[0]
+                all_samples[class_label].extend(X_filtered[class_indices].tolist())
+        
+    # Balance the classes
+    balanced_samples = []
+    balanced_labels = []
+    
+    print('Balance')
+    for class_label, samples in all_samples.items():
+        if len(samples) > target_samples_per_class:
+            selected_indices = np.random.choice(len(samples), target_samples_per_class, replace=False)
+            balanced_samples.extend([samples[i] for i in selected_indices])
+            balanced_labels.extend([class_label] * target_samples_per_class)
+        else:
+            # If we don't have enough samples, use all of them
+            balanced_samples.extend(samples)
+            balanced_labels.extend([class_label] * len(samples))
+    
+    return np.array(balanced_samples), np.array(balanced_labels)
+
+
+
+def generate_decomposition(model_path='data/decomp_model.pkl'):
+    
+    n_components=config.num_components
+    
+    X_balanced, y_balanced = build_balanced_sample()
+    
+    # Create and fit FastICA model
+    print('Decompose')
+    ica = FastICA(n_components=n_components, random_state=42)
+    ica.fit(X_balanced)
+    
+    # Export the model
+    joblib.dump(ica, model_path)
+    
+    print(f"FastICA model created and saved to {model_path}")
+    
