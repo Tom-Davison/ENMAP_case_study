@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import tqdm
 import joblib
 from sklearn.decomposition import PCA
+from keras.models import load_model
 from keras.models import Sequential
 from keras.layers import (
     Dense,
@@ -17,9 +18,13 @@ import matplotlib.colors as mcolors
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, balanced_accuracy_score
 import pandas as pd
+from keras import backend as K
 
 import config
 from read_files import load_arrays
+
+K.set_image_data_format("channels_last")
+
 
 def Patch(data, height_index, width_index, PATCH_SIZE):
     # transpose_array = data.transpose((2,0,1))
@@ -40,17 +45,9 @@ def train_test_CNN(X_train, y_train, X_test, y_test):
 
     print("Making Model")
     model = Sequential()
-    model.add(
-        Conv1D(
-            filters=32,
-            kernel_size=3,
-            activation="relu",
-            input_shape=(config.num_components, 1),
-            padding="same",
-        )
-    )
-    model.add(BatchNormalization())
-    model.add(Conv1D(filters=64, kernel_size=3, activation="relu", padding="same"))
+    #model.add(Conv1D(filters=32, kernel_size=3, activation="relu", input_shape=(config.num_components, 1), padding="same"))
+    #model.add(BatchNormalization())
+    model.add(Conv1D(filters=64, kernel_size=3, activation="relu",  input_shape=(config.num_components, 1), padding="same"))
     model.add(BatchNormalization())
     model.add(MaxPooling1D(pool_size=2))
     model.add(Conv1D(filters=128, kernel_size=3, activation="relu", padding="same"))
@@ -83,8 +80,8 @@ def train_test_CNN(X_train, y_train, X_test, y_test):
     model.fit(
         X_train,
         y_train,
-        batch_size=2048,
-        epochs=15,
+        batch_size=4096,
+        epochs=20,
         verbose=1,
         validation_data=(X_test, y_test),
         callbacks=[reduce_lr, early_stop],
@@ -114,8 +111,9 @@ def predict_CNN(model):
             print("X_filtered shape: ", X_filtered.shape)
             print("y_filtered shape: ", y_filtered.shape)
             
-            pca = joblib.load('data/decomp_model.pkl')
-            X_decomp = pca.transform(X_filtered)  # Use transform instead of fit_transform
+            print("BACKUP!!!")
+            pca = joblib.load('data/decomp_model_backup.pkl')
+            X_decomp = pca.transform(X_filtered) 
             
             print("X_decomp shape: ", X_decomp.shape)
             break
@@ -144,6 +142,8 @@ def predict_CNN(model):
     # Use X_pca directly as pixels and get positions of valid pixels
     pixels = X_decomp
     positions = np.argwhere(valid_mask)
+
+    model = load_model("data/CNN_enmap_worldcover_backup.h5")
 
     if len(pixels) > 0:
         predictions = model.predict(pixels)
@@ -215,5 +215,3 @@ def predict_CNN(model):
 
         plt.show()
         print("Plot done")
-    else:
-        print("No valid patches found for prediction.")

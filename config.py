@@ -17,11 +17,12 @@ unit_class_mapping = {
 }
 
 
-num_components = 150
+num_components = 75
 sample_cap = 300000
 
 
 enmap_data = {
+    """
     "entry1": {
         "image": "data/enmap_image_austria.tif",
         "metadata": "data/enmap_metadata_austria.XML",
@@ -93,7 +94,64 @@ enmap_data = {
         "usage": "training",
         "area_code": "tibet2",
         "cluster": False
-    }
+    },
+    "entry13": {
+        "image": "data/enmap_image_brazilcase1.TIF",
+        "metadata": "data/enmap_metadata_brazilcase1.XML",
+        "reference": "data/worldcover_brazilcase1.tif",
+        "usage": "case_study_1",
+        "area_code": "brazilcase1",
+        "cluster": False
+    },
+    "entry14": {
+        "image": "data/enmap_image_brazilcase2.TIF",
+        "metadata": "data/enmap_metadata_brazilcase2.XML",
+        "reference": "data/worldcover_brazilcase1.tif",
+        "usage": "case_study_1",
+        "area_code": "brazilcase2",
+        "cluster": False
+    },
+    """
+    "entry15": {
+        "image": "data/enmap_image_zambia1.TIF",
+        "metadata": "data/enmap_metadata_zambia1.XML",
+        "reference": "data/worldcover_zambia.tif",
+        "usage": "case_study_2",
+        "area_code": "zambiacase1",
+        "cluster": False
+    },
+    "entry16": {
+        "image": "data/enmap_image_zambia2.TIF",
+        "metadata": "data/enmap_metadata_zambia2.XML",
+        "reference": "data/worldcover_zambia.tif",
+        "usage": "case_study_2",
+        "area_code": "zambiacase2",
+        "cluster": False
+    },
+    "entry17": {
+        "image": "data/enmap_image_zambia3.TIF",
+        "metadata": "data/enmap_metadata_zambia3.XML",
+        "reference": "data/worldcover_zambia.tif",
+        "usage": "case_study_2",
+        "area_code": "zambiacase3",
+        "cluster": False
+    },
+    "entry18": {
+        "image": "data/enmap_image_zambia4.TIF",
+        "metadata": "data/enmap_metadata_zambia4.XML",
+        "reference": "data/worldcover_zambia.tif",
+        "usage": "case_study_2",
+        "area_code": "zambiacase4",
+        "cluster": False
+    },
+    "entry19": {
+        "image": "data/enmap_image_zambia5.TIF",
+        "metadata": "data/enmap_metadata_zambia5.XML",
+        "reference": "data/worldcover_zambia.tif",
+        "usage": "case_study_2",
+        "area_code": "zambiacase5",
+        "cluster": False
+    },
 }
 
 enmap_data_unuused = {

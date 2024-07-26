@@ -1,70 +1,56 @@
-import numpy as np
-from keras import backend as K
-from keras.models import load_model
+
 from read_files import standardise_images
-from process_files import process_data, generate_decomposition
+from process_files import prep_training_data, generate_decomposition
 from CNN import train_test_CNN, predict_CNN
 from cluster_tools import cluster_image
-import config
+from case_studies import generate_case_1, generate_case_2
 
-# import tensorflow_probability as tfp
-# import warnings
-# warnings.filterwarnings("ignore")
-K.set_image_data_format("channels_last")
+# Configuration dictionary
+config = {
+    "process_raw_files": False,
+    "cluster_image": False,
+    "generate_decomposition": False,
+    "prepare_training_data": False,
+    "train_model": False,
+    "test_model": False,
+    "run_case_study_1": False,
+    "run_case_study_2": True
+}
 
-# class_index_mapping = {i: key for i, key in enumerate(class_mapping.keys())}
-# class_reverse_index_mapping = {key: i for i, key in enumerate(class_mapping.keys())}
+def read_files(plot=True):
+    if config["process_raw_files"]:
+        standardise_images(plot=plot)
 
+def cluster_images():
+    if config["cluster_image"]:
+        cluster_image()
 
-# read files
-reconvert_files = False
-if reconvert_files:
-    standardise_images(plot=True)
+def generate_decomp():
+    if config["generate_decomposition"]:
+        generate_decomposition()
 
-##create clusters through kmeans
-#cluster_image()
+def train_model():
+    if config["train_model"]:
+        X_train, X_test, y_train, y_test = prep_training_data(regenerate_library=config["prepare_training_data"])
+        train_test_CNN(X_train, y_train, X_test, y_test)
 
-regenerate_decomposition = True
-if regenerate_decomposition:
-    generate_decomposition()
+def test_model():
+    if config["test_model"]:
+        predict_CNN()
 
-# modelling
-retrain_model = True
-if retrain_model:
-    X_train, X_test, y_train, y_test= process_data(regenerate_library=True)
-    model = train_test_CNN(X_train, y_train, X_test, y_test)
-else:
-    print("Loading model")
-    model = load_model("data/CNN_enmap_worldcover.h5")
+def case_studies():
+    if config["run_case_study_1"]:
+        generate_case_1()
+    if config["run_case_study_2"]:
+        generate_case_2()
 
-predict_CNN(model) #, X, y, unit_class_mapping, config.class_mapping)
-exit()
+def main():
+    read_files()
+    cluster_images()
+    generate_decomp()
+    train_model()
+    test_model()
+    case_studies()
 
-# testing on novel data
-enmap_data_path = "data/ENMAP01-____L2A-DT0000002446_20220810T112429Z_002_V010303_20230922T131813Z-SPECTRAL_IMAGE.tif"
-enmap_metadata_path = "data/ENMAP01-____L2A-DT0000002446_20220810T112429Z_002_V010303_20230922T131813Z-METADATA.xml"
-esa_worldcover_path = "data/ESA_WorldCover_10m_2021_v200_N51E006_Map.tif"
-
-X, y = read_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, plot=False)
-
-unique_labels = np.unique(y)
-n_classes = len(unique_labels)
-
-y_filtered = y[(y != -1) & (y != 0)]
-unique_labels_filtered = np.unique(y_filtered)
-n_classes_filtered = len(unique_labels_filtered)
-
-uniqueLabels, labelCounts = np.unique(y, return_counts=True)
-print("Unique Labels are: ", uniqueLabels)
-print("The number of labels is: ", labelCounts + 1)
-
-# processing
-X_train, X_test, y_train, y_test, X = process_data(
-    X,
-    y,
-    numComponents=numComponents,
-    windowSize=windowSize,
-    testRatio=testRatio,
-    PATCH_SIZE=PATCH_SIZE,
-)
-predict_CNN(model, X, y, unit_class_mapping, class_mapping, PATCH_SIZE)
+if __name__ == "__main__":
+    main()

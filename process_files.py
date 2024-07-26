@@ -101,14 +101,14 @@ def createPatches(X, y, windowSize=1, removeZeroLabels=True):
     return patchesData, patchesLabels
 
 
-def process_data(regenerate_library=False):
+def prep_training_data(regenerate_library=False):
 
     if regenerate_library:
         X_list = []
         y_list = []
+        ica = joblib.load('data/decomp_model.pkl')
         for paths in tqdm.tqdm(config.enmap_data.values(), desc="Loading Data with Decomposition"):
             if paths["usage"] == "training":
-                print('Loading data for: ', paths["area_code"])
                 X, y = load_arrays(paths["area_code"])
             
                 y = y.flatten()
@@ -117,8 +117,6 @@ def process_data(regenerate_library=False):
                 X_filtered = X.reshape(-1, X.shape[-1])[valid_mask]
                 y_filtered = y[valid_mask]
                 
-                print("Decomposing into components")
-                ica = joblib.load('data/decomp_model.pkl')
                 X_decomp = ica.transform(X_filtered)
                 
                 X_list.append(X_decomp)
@@ -202,14 +200,12 @@ def build_balanced_sample(target_samples_per_class=10000, max_samples_per_image=
 
 
 def generate_decomposition(model_path='data/decomp_model.pkl'):
-    
-    n_components=config.num_components
-    
+
     X_balanced, y_balanced = build_balanced_sample()
     
     # Create and fit FastICA model
     print('Decompose')
-    ica = FastICA(n_components=n_components, random_state=42)
+    ica = FastICA(n_components=config.num_components, random_state=42, max_iter=1000)
     ica.fit(X_balanced)
     
     # Export the model
