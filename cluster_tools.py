@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.impute import SimpleImputer
+from sklearn.decomposition import PCA
+import json
 
 import config
 from read_files import load_arrays
@@ -39,11 +41,32 @@ def cluster_image():
     imputer = SimpleImputer(strategy='mean')
     X_imputed = imputer.fit_transform(X_valid)
 
+    X_avg_valid = np.mean(X_imputed, axis=1)
+    X_avg_masked = np.full((num_rows * num_cols,), np.nan)
+    X_avg_masked[valid_mask] = X_avg_valid
+    X_avg_masked_2d = X_avg_masked.reshape((num_rows, num_cols))
+
     # Apply K-Means clustering
     n_clusters = 10  # Clusters equal to ESA worldcover for now
     print(f"Applying K-Means clustering with {n_clusters} clusters")
     kmeans = KMeans(n_clusters=n_clusters, random_state=42)
     kmeans_labels = kmeans.fit_predict(X_imputed)
+
+    # Save this info for later use
+    output_dir = 'data/streamlit/'
+
+    # Perform PCA and save results
+    pca = PCA(n_components=3)
+    pca_result = pca.fit_transform(X_imputed)
+
+    # Calculate and save spectral angles between centroids
+    centroids = kmeans.cluster_centers_
+    spectral_angles = np.zeros((n_clusters, n_clusters))
+    for i in range(n_clusters):
+        for j in range(n_clusters):
+            dot_product = np.dot(centroids[i], centroids[j])
+            norms = np.linalg.norm(centroids[i]) * np.linalg.norm(centroids[j])
+            spectral_angles[i, j] = np.arccos(dot_product / norms)
 
     # Reshape the clustered result back to 2D
     clustered_image = np.full((num_rows * num_cols), -1)  # -1 for masked areas
@@ -67,6 +90,30 @@ def cluster_image():
         for j in range(n_clusters):
             overlap_matrix[i, j] = np.sum((y_mapped == i) & (kmeans_labels == j))
             accuracy_matrix[i, j] = np.sum((y_mapped == i) & (kmeans_labels == j)) / np.sum(y_mapped == i)
+
+    # Save cluster labels, valid mask, and all data for plots
+    np.savez_compressed(
+        f'{output_dir}clustering_data.npz',
+        raw_avg=X_avg_masked_2d,
+        centroids=centroids,
+        spectral_variance=np.var(X_imputed, axis=0),
+        pca_result=pca_result,
+        pca_components=pca.components_,
+        pca_explained_variance_ratio=pca.explained_variance_ratio_,
+        spectral_angles=spectral_angles,
+        cluster_labels=kmeans_labels,
+        valid_mask=valid_mask,
+        overlap_matrix=overlap_matrix,
+        accuracy_matrix=accuracy_matrix,
+    )
+
+    metadata = {
+        'n_clusters': n_clusters,
+        'image_shape': X.shape,
+        'band_names': [f'Band_{i+1}' for i in range(num_bands)]  # Replace with actual band names if available
+    }
+    with open(f'{output_dir}cluster_metadata.json', 'w') as f:
+        json.dump(metadata, f)
 
     # Create a comparison plot
     fig, axs = plt.subplots(2, 2, figsize=(10, 10))

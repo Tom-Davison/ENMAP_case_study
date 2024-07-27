@@ -7,8 +7,8 @@ from case_studies import generate_case_1, generate_case_2
 
 # Choose coponents to run
 config = {
-    "process_raw_files": True,
-    "cluster_image": False,
+    "process_raw_files": False,
+    "cluster_image": True,
     "generate_decomposition": False,
     "prepare_training_data": False,
     "train_model": False,
