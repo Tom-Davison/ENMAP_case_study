@@ -16,6 +16,7 @@ from rasterio.warp import (
 
 import config
 
+# Collect the paths to the EnMAP and reference data
 def standardise_images(plot=False):
     for entry_name, paths in config.enmap_data.items():
         image_path = paths["image"]
@@ -24,21 +25,28 @@ def standardise_images(plot=False):
         area_code = paths["area_code"]
 
         print(f"Processing {entry_name}:")
-        read_and_convert_files(image_path, metadata_path, reference_path, area_code, plot=plot)
+        read_and_convert_files(
+            image_path, metadata_path, reference_path, area_code, plot=plot
+        )
+        exit()
+
 
 def save_arrays(X, y, base_filename):
+    # Used often, so save as npz
     np.savez(f"data/cleaned_{base_filename}.npz", X=X, y=y)
+
 
 def load_arrays(base_filename):
     data = np.load(f"data/cleaned_{base_filename}.npz")
-    X = data['X']
-    y = data['y']
+    X = data["X"]
+    y = data["y"]
     return X, y
+
 
 def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_path, area_code, plot=False):
     target_crs = "EPSG:4326"  # Define the target CRS (WGS 84)
 
-    # Read XML for boundary
+    # Read XML for boundary coordinates
     tree = ET.parse(enmap_metadata_path)
     root = tree.getroot()
 
@@ -53,23 +61,29 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
     bounding_polygon = Polygon(coordinates[0:5])
     gdf_polygon = gpd.GeoDataFrame([1], geometry=[bounding_polygon], crs=target_crs)
 
-    # Step 1: Read and clip EnMAP Data
+    # Read and clip EnMAP Data
     with rasterio.open(enmap_data_path) as enmap_src:
         enmap_crs = enmap_src.crs
         gdf_polygon_enmap = gdf_polygon.to_crs(enmap_crs)
 
+        # Clip the EnMAP data to the bounding polygon
         enmap_image, enmap_transform = mask(
             dataset=enmap_src, shapes=gdf_polygon_enmap.geometry, crop=True
         )
 
     if plot:
         fig, ax = plt.subplots(figsize=(10, 10))
+
+        # Plot the clipped EnMAP data
         show(enmap_image[0], transform=enmap_transform, ax=ax, cmap="gray")
+
+        # Plot the boundary polygon
         gdf_polygon_enmap.boundary.plot(ax=ax, edgecolor="red")
+
         plt.title("Original EnMAP data with clipping polygon")
         plt.show()
 
-    # Step 2: Reproject the clipped EnMAP data to EPSG:4326
+    # Reproject EnMAP data to target CRS and save the transform
     dst_crs = "EPSG:4326"
     transform, width, height = calculate_default_transform(
         enmap_crs,
@@ -81,10 +95,12 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
         ),
     )
 
+    # Create an empty array to store the reprojected EnMAP data
     enmap_reprojected = np.empty(
         (enmap_image.shape[0], height, width), dtype=enmap_image.dtype
     )
 
+    # Reproject each band of the EnMAP data according to the transform
     for i in range(enmap_image.shape[0]):
         reproject(
             source=enmap_image[i],
@@ -100,6 +116,7 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
     enmap_transform = transform
 
     if plot:
+        # Plot the reprojected EnMAP polygon with the reprojected coordinates
         gdf_polygon_reproj = gdf_polygon.to_crs(dst_crs)
 
         fig, ax = plt.subplots(figsize=(10, 10))
@@ -108,7 +125,7 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
         plt.title("Reprojected EnMAP data with reprojected polygon")
         plt.show()
 
-    # Step 3: Read and clip ESA WorldCover Data
+    # Read and clip ESA WorldCover Data
     with rasterio.open(esa_worldcover_path) as wc_src:
         wc_crs = wc_src.crs
         gdf_polygon_wc = gdf_polygon.to_crs(wc_crs)
@@ -116,9 +133,9 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
         wc_image, wc_transform = mask(
             dataset=wc_src, shapes=gdf_polygon_wc.geometry, crop=True
         )
-        wc_image = wc_image[0]  # Extract the single band
+        wc_image = wc_image[0]  # Set as a single band (label data)
 
-    # Step 4: Reproject WorldCover data to target CRS
+    # Reproject WorldCover data to target CRS
     wc_transform, wc_width, wc_height = calculate_default_transform(
         wc_crs,
         target_crs,
@@ -129,8 +146,10 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
         ),
     )
 
+    # Create an empty array to store the reprojected WorldCover data
     wc_reprojected = np.empty((wc_height, wc_width), dtype=wc_image.dtype)
 
+    # Reproject the WorldCover data according to the transform
     reproject(
         source=wc_image,
         destination=wc_reprojected,
@@ -146,7 +165,8 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
     if plot:
         plot_overlay(enmap_image, wc_image, enmap_transform, wc_transform)
 
-    # Step 5: Generate Label Array from ESA WorldCover Data
+
+    # Generate Label Array from ESA WorldCover Data on same pixel grid as EnMAP data
     label_array, valid_mask = create_label_array(
         enmap_image, enmap_transform, dst_crs, wc_image, wc_transform, target_crs
     )
@@ -155,14 +175,13 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
         plot_labels(enmap_image, label_array, enmap_transform)
 
     X = enmap_image.transpose(1, 2, 0)  # Spectral data
-    y = label_array
+    y = label_array # Labels
 
-    # Apply the mask to the EnMAP data and labels
+    # Apply a mask to the EnMAP data and labels to remove invalid pixels
     masked_X = np.where(valid_mask[:, :, np.newaxis], X, np.nan)
-    masked_y = np.where(
-        valid_mask, y, -1
-    )  # Use -1 or another appropriate value for invalid pixels
+    masked_y = np.where(valid_mask, y, -1)  # Apply -1 to invalid labels for future masking
 
+    # Save the masked data and print info for debug
     print("Original spectral data shape:", X.shape)
     print("Original label data shape:", y.shape)
     print("Masked spectral data shape:", masked_X.shape)
@@ -176,8 +195,8 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
 def create_label_array(
     enmap_image, enmap_transform, enmap_crs, wc_image, wc_transform, wc_crs
 ):
-    # Create a mask for valid data in the WorldCover image (assuming 255 is no-data)
-    wc_mask = wc_image != 255
+    # Create a mask for valid data in the WorldCover image (using 0 as 'no-data')
+    wc_mask = wc_image != 0 #TODO: check impact downstream
 
     # Create an empty label array
     label_array = np.full(
@@ -203,13 +222,15 @@ def create_label_array(
         wc_image.shape[0] - 1, int(max(wc_row_min, wc_row_max))
     )
 
-    # Iterate over the EnMAP pixels
+    # Iterate over the EnMAP pixels and assign the corresponding WorldCover label
     for row in range(enmap_image.shape[1]):
         for col in range(enmap_image.shape[2]):
-            x, y = enmap_transform * (col, row)
-            wc_col, wc_row = ~wc_transform * (x, y)
-            wc_col, wc_row = int(wc_col), int(wc_row)
 
+            x, y = enmap_transform * (col, row) # Transform EnMAP pixel to WorldCover CRS
+            wc_col, wc_row = ~wc_transform * (x, y) # Transform EnMAP pixel to WorldCover pixel
+            wc_col, wc_row = int(wc_col), int(wc_row) # Convert pixel position to integer
+
+            # Check if the WorldCover pixel is within the bounds and is valid
             if (
                 wc_col_min <= wc_col <= wc_col_max
                 and wc_row_min <= wc_row <= wc_row_max

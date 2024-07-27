@@ -82,6 +82,9 @@ def create_model(trial):
     return model
 
 def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
+    # There are two options for training. If we're not tuning, a default model is created.
+    # Else we can dig into hyperparameters to find the best model.
+
     print("X_train shape: ", X_train.shape)
     print("y_train shape: ", y_train.shape)
     print("X_test shape: ", X_test.shape)
@@ -89,6 +92,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
 
     if not tune:
         print("Making Model")
+        # Optuna is still used due to 'create_model' constraints, but not saved in the database
         model = create_model(optuna.trial.FixedTrial({
             'conv1_filters': 64,
             'conv2_filters': 128,
@@ -100,17 +104,12 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
         }))
         
         optimizer = Adam(learning_rate=0.001)
-        model.compile(
-            loss="categorical_crossentropy", optimizer=optimizer, metrics=["accuracy"]
-        )
+        model.compile(loss="categorical_crossentropy", optimizer=optimizer, metrics=["accuracy"])
         model.summary()
 
-        reduce_lr = ReduceLROnPlateau(
-            monitor="val_loss", factor=0.2, patience=5, min_lr=0.00001
-        )
-        early_stop = EarlyStopping(
-            monitor="val_loss", patience=10, restore_best_weights=True
-        )
+        # reduce learning rate on plateau and early stopping
+        reduce_lr = ReduceLROnPlateau(monitor="val_loss", factor=0.2, patience=5, min_lr=0.00001)
+        early_stop = EarlyStopping(monitor="val_loss", patience=10, restore_best_weights=True)
 
         model.fit(
             X_train,
@@ -128,12 +127,11 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
     
     if tune:
         def objective(trial):
+            # Create a model with hyperparameters suggested by Optuna
             model = create_model(trial)
             
             optimizer = Adam(learning_rate=trial.suggest_loguniform('learning_rate', 1e-5, 1e-2))
-            model.compile(
-                loss="categorical_crossentropy", optimizer=optimizer, metrics=["accuracy"]
-            )
+            model.compile(loss="categorical_crossentropy", optimizer=optimizer, metrics=["accuracy"])
 
             reduce_lr = ReduceLROnPlateau(
                 monitor="val_loss",
@@ -159,6 +157,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
             
             return history.history['val_accuracy'][-1]
 
+        # Create a study to store the results, or load an existing study
         study = optuna.create_study(
             study_name="cnn_hyperparameter_optimization",
             storage="sqlite:///optuna_study.db",  # SQLite database
@@ -167,6 +166,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
         )
         study.optimize(objective, n_trials=5)
 
+        # Take the best params for metrics
         best_params = study.best_params
         print("Best hyperparameters:", best_params)
 
@@ -218,8 +218,8 @@ def predict_CNN(model):
             print("X_filtered shape: ", X_filtered.shape)
             print("y_filtered shape: ", y_filtered.shape)
             
-            pca = joblib.load('data/decomp_model.pkl')
-            X_decomp = pca.transform(X_filtered) 
+            decomp = joblib.load('data/decomp_model.pkl')
+            X_decomp = decomp.transform(X_filtered) 
             
             print("X_decomp shape: ", X_decomp.shape)
             break
@@ -231,6 +231,7 @@ def predict_CNN(model):
     y_consecutive = np.full(y.shape, -1, dtype=int)  # Fill with -1 initially
     y_consecutive[valid_mask] = (y[valid_mask] / 10) - 1
 
+    # Define a colormap and normalization for the predicted image
     cmap = plt.cm.get_cmap("tab10", len(config.unit_class_mapping))
     norm = mcolors.BoundaryNorm(
         boundaries=[key - 0.5 for key in sorted(config.unit_class_mapping.keys())]
@@ -238,20 +239,18 @@ def predict_CNN(model):
         ncolors=len(config.unit_class_mapping),
     )
 
-    unique_labels = sorted(config.unit_class_mapping.keys())
-
     height, width = y.shape
     print(height, width)
 
     outputs = np.full((height, width), -1)  # Fill with -1 initially
 
-    # Use X_pca directly as pixels and get positions of valid pixels
     pixels = X_decomp
     positions = np.argwhere(valid_mask)
 
     model = load_model("data/CNN_enmap_worldcover.h5")
 
     if len(pixels) > 0:
+        # Predict the labels for the valid pixels
         predictions = model.predict(pixels)
 
         for prediction, position in zip(predictions, positions):
