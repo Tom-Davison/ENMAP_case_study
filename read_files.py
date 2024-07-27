@@ -26,14 +26,14 @@ def save_processed_data(enmap_image, wc_image, label_array, enmap_transform, wc_
     lower_percentile = np.percentile(enmap_avg[valid_mask], 2)
     upper_percentile = np.percentile(enmap_avg[valid_mask], 98)
     
-    # Save all numpy arrays in a single file
+    # Save numpy arrays
     np.savez_compressed(f"data/streamlit/{area_code}_data.npz", 
                         enmap_avg=enmap_avg, 
                         wc_image=wc_image,
                         label_array=label_array, 
                         valid_mask=valid_mask)
     
-    # Save metadata and plot configurations in a single JSON file
+    # Save metadata, plot configurations, and data in a single JSON file
     info = {
         "metadata": {
             "enmap_transform": enmap_transform.to_gdal(),
@@ -52,6 +52,7 @@ def save_processed_data(enmap_image, wc_image, label_array, enmap_transform, wc_
     
     with open(f"data/streamlit/{area_code}_info.json", "w") as f:
         json.dump(info, f)
+
 
 # Collect the paths to the EnMAP and reference data
 def standardise_images(plot=False):

@@ -11,6 +11,20 @@ class_mapping = {
     100: "moss and lichen",
 }
 
+value_to_color_maps = {
+    #0: "#000000",
+    10: "#006400",
+    20: "#FFBB22",
+    30: "#FFFF4C",
+    40: "#F096FF",
+    50: "#FA0000",
+    60: "#B4B4B4",
+    70: "#F0F0F0",
+    80: "#0064C8",
+    90: "#0096A0",
+    100: "#FAE6A0",
+}
+
 unit_class_mapping = {
     new_index: original_key
     for new_index, original_key in enumerate(class_mapping.keys())
