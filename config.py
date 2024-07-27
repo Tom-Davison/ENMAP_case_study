@@ -18,11 +18,10 @@ unit_class_mapping = {
 
 
 num_components = 75
-sample_cap = 300000
+sample_cap = 25000 #300000
 
 
 enmap_data = {
-    """
     "entry1": {
         "image": "data/enmap_image_austria.tif",
         "metadata": "data/enmap_metadata_austria.XML",
@@ -111,7 +110,6 @@ enmap_data = {
         "area_code": "brazilcase2",
         "cluster": False
     },
-    """
     "entry15": {
         "image": "data/enmap_image_zambia1.TIF",
         "metadata": "data/enmap_metadata_zambia1.XML",

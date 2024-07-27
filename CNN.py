@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import tqdm
 import joblib
-from sklearn.decomposition import PCA
 from keras.models import load_model
 from keras.models import Sequential
 from keras.layers import (
@@ -12,13 +11,14 @@ from keras.layers import (
     Dropout,
     BatchNormalization,
 )
-from keras.optimizers import SGD, Adam
+from keras.optimizers import Adam
 import numpy as np
 import matplotlib.colors as mcolors
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, balanced_accuracy_score
 import pandas as pd
 from keras import backend as K
+import optuna
 
 import config
 from read_files import load_arrays
@@ -26,70 +26,177 @@ from read_files import load_arrays
 K.set_image_data_format("channels_last")
 
 
-def Patch(data, height_index, width_index, PATCH_SIZE):
-    # transpose_array = data.transpose((2,0,1))
-    # print transpose_array.shape
-    height_slice = slice(height_index, height_index + PATCH_SIZE)
-    width_slice = slice(width_index, width_index + PATCH_SIZE)
-    patch = data[height_slice, width_slice, :]
-    return patch
+def create_model(trial):
+    model = Sequential()
+    
+    # First Conv1D layer
+    model.add(Conv1D(
+        filters=trial.suggest_int('conv1_filters', 32, 128),
+        kernel_size=trial.suggest_int('conv1_kernel', 2, 5),
+        activation=trial.suggest_categorical('conv1_activation', ['relu', 'elu', 'selu']),
+        input_shape=(config.num_components, 1),
+        padding="same"
+    ))
+    model.add(BatchNormalization())
+    model.add(MaxPooling1D(pool_size=trial.suggest_int('pool1_size', 2, 4)))
+    
+    # Second Conv1D layer
+    model.add(Conv1D(
+        filters=trial.suggest_int('conv2_filters', 64, 256),
+        kernel_size=trial.suggest_int('conv2_kernel', 2, 5),
+        activation=trial.suggest_categorical('conv2_activation', ['relu', 'elu', 'selu']),
+        padding="same"
+    ))
+    model.add(BatchNormalization())
+    
+    # Third Conv1D layer
+    model.add(Conv1D(
+        filters=trial.suggest_int('conv3_filters', 128, 512),
+        kernel_size=trial.suggest_int('conv3_kernel', 2, 5),
+        activation=trial.suggest_categorical('conv3_activation', ['relu', 'elu', 'selu']),
+        padding="same"
+    ))
+    model.add(BatchNormalization())
+    model.add(MaxPooling1D(pool_size=trial.suggest_int('pool2_size', 2, 4)))
+    
+    model.add(Flatten())
+    
+    # First Dense layer
+    model.add(Dense(
+        units=trial.suggest_int('dense1_units', 128, 512),
+        activation=trial.suggest_categorical('dense1_activation', ['relu', 'elu', 'selu'])
+    ))
+    model.add(BatchNormalization())
+    model.add(Dropout(trial.suggest_float('dropout1', 0.1, 0.5)))
+    
+    # Second Dense layer
+    model.add(Dense(
+        units=trial.suggest_int('dense2_units', 64, 256),
+        activation=trial.suggest_categorical('dense2_activation', ['relu', 'elu', 'selu'])
+    ))
+    model.add(BatchNormalization())
+    model.add(Dropout(trial.suggest_float('dropout2', 0.1, 0.5)))
+    
+    model.add(Dense(len(config.class_mapping), activation="softmax"))
+    
+    return model
 
-
-def train_test_CNN(X_train, y_train, X_test, y_test):
-
+def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
     print("X_train shape: ", X_train.shape)
     print("y_train shape: ", y_train.shape)
     print("X_test shape: ", X_test.shape)
     print("y_test shape: ", y_test.shape)
 
+    if not tune:
+        print("Making Model")
+        model = create_model(optuna.trial.FixedTrial({
+            'conv1_filters': 64,
+            'conv2_filters': 128,
+            'conv3_filters': 512,
+            'dense1_units': 256,
+            'dense2_units': 128,
+            'dropout1': 0.3,
+            'dropout2': 0.1
+        }))
+        
+        optimizer = Adam(learning_rate=0.001)
+        model.compile(
+            loss="categorical_crossentropy", optimizer=optimizer, metrics=["accuracy"]
+        )
+        model.summary()
 
-    print("Making Model")
-    model = Sequential()
-    #model.add(Conv1D(filters=32, kernel_size=3, activation="relu", input_shape=(config.num_components, 1), padding="same"))
-    #model.add(BatchNormalization())
-    model.add(Conv1D(filters=64, kernel_size=3, activation="relu",  input_shape=(config.num_components, 1), padding="same"))
-    model.add(BatchNormalization())
-    model.add(MaxPooling1D(pool_size=2))
-    model.add(Conv1D(filters=128, kernel_size=3, activation="relu", padding="same"))
-    model.add(BatchNormalization())
-    model.add(Conv1D(filters=512, kernel_size=3, activation="relu", padding="same"))
-    model.add(BatchNormalization())
-    model.add(MaxPooling1D(pool_size=2))
-    model.add(Flatten())
-    model.add(Dense(units=256, activation="relu"))
-    model.add(BatchNormalization())
-    model.add(Dropout(0.3))
-    model.add(Dense(units=128, activation="relu"))
-    model.add(BatchNormalization())
-    model.add(Dropout(0.1))
-    model.add(Dense(len(config.class_mapping), activation="softmax"))
+        reduce_lr = ReduceLROnPlateau(
+            monitor="val_loss", factor=0.2, patience=5, min_lr=0.00001
+        )
+        early_stop = EarlyStopping(
+            monitor="val_loss", patience=10, restore_best_weights=True
+        )
 
-    optimizer = Adam(learning_rate=0.001)
-    model.compile(
-        loss="categorical_crossentropy", optimizer=optimizer, metrics=["accuracy"]
-    )
-    model.summary()
+        model.fit(
+            X_train,
+            y_train,
+            batch_size=4096,
+            epochs=20,
+            verbose=1,
+            validation_data=(X_test, y_test),
+            callbacks=[reduce_lr, early_stop],
+        )
 
-    reduce_lr = ReduceLROnPlateau(
-        monitor="val_loss", factor=0.2, patience=5, min_lr=0.00001
-    )
-    early_stop = EarlyStopping(
-        monitor="val_loss", patience=10, restore_best_weights=True
-    )
+        # export model
+        model.save("data/CNN_enmap_worldcover.h5")
+        return model
+    
+    if tune:
+        def objective(trial):
+            model = create_model(trial)
+            
+            optimizer = Adam(learning_rate=trial.suggest_loguniform('learning_rate', 1e-5, 1e-2))
+            model.compile(
+                loss="categorical_crossentropy", optimizer=optimizer, metrics=["accuracy"]
+            )
 
-    model.fit(
-        X_train,
-        y_train,
-        batch_size=4096,
-        epochs=20,
-        verbose=1,
-        validation_data=(X_test, y_test),
-        callbacks=[reduce_lr, early_stop],
-    )
+            reduce_lr = ReduceLROnPlateau(
+                monitor="val_loss",
+                factor=trial.suggest_uniform('lr_reduction_factor', 0.1, 0.5),
+                patience=trial.suggest_int('lr_patience', 3, 10),
+                min_lr=0.00001
+            )
+            early_stop = EarlyStopping(
+                monitor="val_loss",
+                patience=trial.suggest_int('early_stop_patience', 5, 15),
+                restore_best_weights=True
+            )
 
-    #export model
-    model.save("data/CNN_enmap_worldcover.h5")
-    return model
+            history = model.fit(
+                X_train,
+                y_train,
+                batch_size=trial.suggest_categorical('batch_size', [256, 1024, 2048, 4096, 8192]),
+                epochs=trial.suggest_int('epochs', 10, 50),
+                verbose=0,
+                validation_data=(X_test, y_test),
+                callbacks=[reduce_lr, early_stop],
+            )
+            
+            return history.history['val_accuracy'][-1]
+
+        study = optuna.create_study(
+            study_name="cnn_hyperparameter_optimization",
+            storage="sqlite:///optuna_study.db",  # SQLite database
+            load_if_exists=True,
+            direction='maximize'
+        )
+        study.optimize(objective, n_trials=5)
+
+        best_params = study.best_params
+        print("Best hyperparameters:", best_params)
+
+        # Train the model with the best hyperparameters
+        best_model = create_model(optuna.trial.FixedTrial(best_params))
+        optimizer = Adam(learning_rate=best_params['learning_rate'])
+        best_model.compile(
+            loss="categorical_crossentropy", optimizer=optimizer, metrics=["accuracy"]
+        )
+
+        reduce_lr = ReduceLROnPlateau(
+            monitor="val_loss", factor=0.2, patience=5, min_lr=0.00001
+        )
+        early_stop = EarlyStopping(
+            monitor="val_loss", patience=10, restore_best_weights=True
+        )
+
+        best_model.fit(
+            X_train,
+            y_train,
+            batch_size=best_params['batch_size'],
+            epochs=50,
+            verbose=1,
+            validation_data=(X_test, y_test),
+            callbacks=[reduce_lr, early_stop],
+        )
+
+        # export model
+        best_model.save("data/CNN_enmap_worldcover_tuned.h5")
+        return best_model
 
 
 def predict_CNN(model):
@@ -111,8 +218,7 @@ def predict_CNN(model):
             print("X_filtered shape: ", X_filtered.shape)
             print("y_filtered shape: ", y_filtered.shape)
             
-            print("BACKUP!!!")
-            pca = joblib.load('data/decomp_model_backup.pkl')
+            pca = joblib.load('data/decomp_model.pkl')
             X_decomp = pca.transform(X_filtered) 
             
             print("X_decomp shape: ", X_decomp.shape)
@@ -143,7 +249,7 @@ def predict_CNN(model):
     pixels = X_decomp
     positions = np.argwhere(valid_mask)
 
-    model = load_model("data/CNN_enmap_worldcover_backup.h5")
+    model = load_model("data/CNN_enmap_worldcover.h5")
 
     if len(pixels) > 0:
         predictions = model.predict(pixels)

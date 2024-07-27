@@ -5,16 +5,16 @@ from CNN import train_test_CNN, predict_CNN
 from cluster_tools import cluster_image
 from case_studies import generate_case_1, generate_case_2
 
-# Configuration dictionary
+# Choose coponents to run
 config = {
     "process_raw_files": False,
     "cluster_image": False,
     "generate_decomposition": False,
-    "prepare_training_data": False,
-    "train_model": False,
+    "prepare_training_data": True,
+    "train_model": True,
     "test_model": False,
     "run_case_study_1": False,
-    "run_case_study_2": True
+    "run_case_study_2": False
 }
 
 def read_files(plot=True):
@@ -32,7 +32,7 @@ def generate_decomp():
 def train_model():
     if config["train_model"]:
         X_train, X_test, y_train, y_test = prep_training_data(regenerate_library=config["prepare_training_data"])
-        train_test_CNN(X_train, y_train, X_test, y_test)
+        train_test_CNN(X_train, y_train, X_test, y_test, tune=True)
 
 def test_model():
     if config["test_model"]:

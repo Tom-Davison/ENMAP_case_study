@@ -1,17 +1,19 @@
-import rasterio
 import numpy as np
 import matplotlib.pyplot as plt
+from shapely.geometry import Polygon
+import geopandas as gpd
+import xml.etree.ElementTree as ET
+
+import rasterio
+from rasterio.plot import show
+from rasterio.mask import mask
 from rasterio.warp import (
     calculate_default_transform,
     reproject,
     Resampling,
     transform_bounds,
 )
-from rasterio.mask import mask
-from shapely.geometry import Polygon
-import geopandas as gpd
-import xml.etree.ElementTree as ET
-from rasterio.plot import show
+
 import config
 
 def standardise_images(plot=False):

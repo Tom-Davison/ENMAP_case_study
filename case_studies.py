@@ -31,8 +31,7 @@ def generate_case_1():
             print("X_filtered shape: ", X_filtered.shape)
             print("y_filtered shape: ", y_filtered.shape)
             
-            print("BACKUP!!!")
-            pca = joblib.load('data/decomp_model_backup.pkl')
+            pca = joblib.load('data/decomp_model.pkl')
             X_decomp = pca.transform(X_filtered) 
             
             print("X_decomp shape: ", X_decomp.shape)
@@ -62,8 +61,7 @@ def generate_case_1():
             pixels = X_decomp
             positions = np.argwhere(valid_mask)
 
-            print("BACKUP!!!")
-            model = load_model("data/CNN_enmap_worldcover_backup.h5")
+            model = load_model("data/CNN_enmap_worldcover.h5")
 
             if len(pixels) > 0:
                 predictions = model.predict(pixels)
@@ -164,9 +162,8 @@ def generate_case_2():
 
             print("X_filtered shape: ", X_filtered.shape)
             print("y_filtered shape: ", y_filtered.shape)
-            
-            print("BACKUP!!!")
-            pca = joblib.load('data/decomp_model_backup.pkl')
+
+            pca = joblib.load('data/decomp_model.pkl')
             X_decomp = pca.transform(X_filtered) 
             
             print("X_decomp shape: ", X_decomp.shape)
@@ -196,8 +193,7 @@ def generate_case_2():
             pixels = X_decomp
             positions = np.argwhere(valid_mask)
 
-            print("BACKUP!!!")
-            model = load_model("data/CNN_enmap_worldcover_backup.h5")
+            model = load_model("data/CNN_enmap_worldcover.h5")
 
             if len(pixels) > 0:
                 predictions = model.predict(pixels)
@@ -219,8 +215,11 @@ def generate_case_2():
                 # Add the date to the fractions dictionary
                 fractions['Date'] = start_time
                 
-                # Append the results to the dataframe
-                results_df = results_df.append(fractions, ignore_index=True)
+                # Create a DataFrame from the fractions dictionary
+                fractions_df = pd.DataFrame([fractions])
+                
+                # Append the fractions DataFrame to the results DataFrame
+                results_df = pd.concat([results_df, fractions_df], ignore_index=True)
 
                 # Plot the predicted image and the mask image side by side
                 plt.figure(figsize=(10, 10))
@@ -236,7 +235,6 @@ def generate_case_2():
                 plt.title("Predicted Image")
 
                 plt.show()
-                print("Plot done")
 
     # Print the results dataframe
     print(results_df)
