@@ -17,7 +17,7 @@ config = {
     "run_case_study_2": False
 }
 
-def read_files(plot=True):
+def read_files(plot=False):
     # Read and standardise the images ensuring EnMAP and ESA WorldCover data are 
     # in the same format and projection. This will be the basis for our input and
     # laballed data for the CNN model.

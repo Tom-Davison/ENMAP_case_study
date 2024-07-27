@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
 import geopandas as gpd
 import xml.etree.ElementTree as ET
+import json
+import pickle
 
 import rasterio
 from rasterio.plot import show
@@ -16,6 +18,41 @@ from rasterio.warp import (
 
 import config
 
+def save_processed_data(enmap_image, wc_image, label_array, enmap_transform, wc_transform, area_code, dst_crs, valid_mask):
+    # Average EnMAP image across spectral bands
+    enmap_avg = np.mean(enmap_image, axis=0)
+    
+    # Calculate percentiles for color scaling
+    lower_percentile = np.percentile(enmap_avg[valid_mask], 2)
+    upper_percentile = np.percentile(enmap_avg[valid_mask], 98)
+    
+    # Save all numpy arrays in a single file
+    np.savez_compressed(f"data/streamlit/{area_code}_data.npz", 
+                        enmap_avg=enmap_avg, 
+                        wc_image=wc_image,
+                        label_array=label_array, 
+                        valid_mask=valid_mask)
+    
+    # Save metadata and plot configurations in a single JSON file
+    info = {
+        "metadata": {
+            "enmap_transform": enmap_transform.to_gdal(),
+            "wc_transform": wc_transform.to_gdal(),
+            "dst_crs": dst_crs,
+            "area_code": area_code,
+            "enmap_color_scale": (float(lower_percentile), float(upper_percentile))
+        },
+        "plot_configs": {
+            "original_enmap": {"title": "Original EnMAP data with clipping polygon"},
+            "reprojected_enmap": {"title": "Reprojected EnMAP data with reprojected polygon"},
+            "overlay": {"title": "Overlay of EnMAP and WorldCover data"},
+            "labels": {"title": "EnMAP data with generated labels"}
+        }
+    }
+    
+    with open(f"data/streamlit/{area_code}_info.json", "w") as f:
+        json.dump(info, f)
+
 # Collect the paths to the EnMAP and reference data
 def standardise_images(plot=False):
     for entry_name, paths in config.enmap_data.items():
@@ -28,7 +65,6 @@ def standardise_images(plot=False):
         read_and_convert_files(
             image_path, metadata_path, reference_path, area_code, plot=plot
         )
-        exit()
 
 
 def save_arrays(X, y, base_filename):
@@ -163,7 +199,8 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
     wc_image = wc_reprojected
 
     if plot:
-        plot_overlay(enmap_image, wc_image, enmap_transform, wc_transform)
+        fig = plot_overlay(enmap_image, wc_image, enmap_transform, wc_transform)
+        plt.show()
 
 
     # Generate Label Array from ESA WorldCover Data on same pixel grid as EnMAP data
@@ -188,6 +225,8 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
     print("Masked label data shape:", masked_y.shape)
     print(f"Total pixels: {X.shape[0] * X.shape[1]}")
     print(f"Valid pixels: {np.sum(valid_mask)}")
+
+    save_processed_data(enmap_image, wc_image, label_array, enmap_transform, wc_transform, area_code, dst_crs, valid_mask)
 
     save_arrays(masked_X, masked_y, area_code)
 
@@ -241,18 +280,34 @@ def create_label_array(
     valid_mask = label_array != -1
     return label_array, valid_mask
 
-
-def plot_overlay(enmap_image, wc_image, enmap_transform, wc_transform):
+def plot_overlay(enmap_data, wc_image, enmap_transform, wc_transform):
     fig, ax = plt.subplots(figsize=(10, 10))
-    enmap_extent = rasterio.transform.array_bounds(
-        enmap_image.shape[1], enmap_image.shape[2], enmap_transform
-    )
+    
+    # Check if enmap_data is 3D or 2D
+    if enmap_data.ndim == 3:
+        # If 3D, use the first band for visualization
+        enmap_display = enmap_data[0]
+        enmap_extent = rasterio.transform.array_bounds(
+            enmap_data.shape[1], enmap_data.shape[2], enmap_transform
+        )
+    else:
+        # If 2D, use it as is (this is the averaged version)
+        enmap_display = enmap_data
+        enmap_extent = rasterio.transform.array_bounds(
+            enmap_data.shape[0], enmap_data.shape[1], enmap_transform
+        )
+
     wc_extent = rasterio.transform.array_bounds(
         wc_image.shape[0], wc_image.shape[1], wc_transform
     )
 
+    # Calculate vmin and vmax for EnMAP data
+    valid_data = enmap_display[~np.isnan(enmap_display)]
+    vmin, vmax = np.percentile(valid_data, [2, 98])
+
     enmap_plot = ax.imshow(
-        enmap_image[0], cmap="gray", extent=enmap_extent, alpha=0.7, vmin=-200, vmax=300
+        enmap_display, cmap="viridis", extent=enmap_extent, alpha=0.7,
+        vmin=vmin, vmax=vmax
     )
     wc_plot = ax.imshow(wc_image, cmap="tab10", extent=wc_extent, alpha=0.3)
 
@@ -264,7 +319,8 @@ def plot_overlay(enmap_image, wc_image, enmap_transform, wc_transform):
     ax.set_title("EnMAP and ESA WorldCover Data Overlay")
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
-    plt.show()
+    
+    return fig
 
 
 def plot_labels(enmap_image, label_array, enmap_transform):
