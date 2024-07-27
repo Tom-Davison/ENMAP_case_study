@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import ListedColormap, BoundaryNorm
+from sklearn.model_selection import train_test_split
 
 import numpy as np
 from rasterio.transform import Affine
@@ -70,23 +71,47 @@ def spec_analysis():
 
     
     # 3. PCA Visualization
-    st.header('PCA Visualization')
-    print(data['pca_result'].shape)
-    fig = go.Figure(data=[go.Scatter3d(
-        x=data['pca_result'][:, 0], y=data['pca_result'][:, 1], z=data['pca_result'][:, 2],
-        mode='markers',
-        marker=dict(size=2, color=data['cluster_labels'], colorscale='Viridis', opacity=0.8)
-    )])
-    fig.update_layout(title='PCA 3D Visualization', scene=dict(xaxis_title='PC1', yaxis_title='PC2', zaxis_title='PC3'))
-    st.plotly_chart(fig)
+    st.subheader('PCA visualization in 3 planes')
+    col1, col2, col3 = st.columns(3)
+    _, pca_sample, _, cluster_labels_sample = train_test_split(data['pca_result'], data['cluster_labels'], stratify=data['cluster_labels'], train_size=0.99, random_state=42)
+    
+    pca_sample = np.array(pca_sample) / 1000
+    with col1:
+        fig, ax = plt.subplots(figsize=(5, 5))
+        plt.scatter(pca_sample[:, 0], pca_sample[:, 1], c=cluster_labels_sample, cmap='viridis', s=2, alpha=0.8)
+        ax.set_title('PC1 vs PC2')
+        ax.set_xlabel('PC1')
+        ax.set_ylabel('PC2')
+        ax.set_xlim(-60, 20)
+        ax.set_ylim(-20, 70)
+        st.pyplot(fig)
+    with col2:
+        fig, ax = plt.subplots(figsize=(5, 5))
+        plt.scatter(pca_sample[:, 0], pca_sample[:, 2], c=cluster_labels_sample, cmap='viridis', s=2, alpha=0.8)
+        ax.set_title('PC1 vs PC2')
+        ax.set_xlabel('PC1')
+        ax.set_ylabel('PC3')
+        ax.set_xlim(-60, 30)
+        ax.set_ylim(-20, 15)
+        st.pyplot(fig)
+    with col3:
+        fig, ax = plt.subplots(figsize=(5, 5))
+        plt.scatter(pca_sample[:, 1], pca_sample[:, 2], c=cluster_labels_sample, cmap='viridis', s=2, alpha=0.8)
+        ax.set_title('PC1 vs PC2')
+        ax.set_xlabel('PC2')
+        ax.set_ylabel('PC3')
+        ax.set_xlim(-20, 70)
+        ax.set_ylim(-25, 15)
+        st.pyplot(fig)
 
-    """
+    
     # 4. Spectral Angle Heatmap
-    st.header('Spectral Angle Heatmap')
+    st.subheader('Spectral Angle Heatmap')
     fig = go.Figure(data=go.Heatmap(z=data['spectral_angles'], colorscale='Viridis'))
     fig.update_layout(title='Spectral Angles Between Cluster Centroids')
     st.plotly_chart(fig)
 
+    """
     # 5. Overlap and Accuracy Matrices
     st.header('Overlap and Accuracy Matrices')
     col1, col2 = st.columns(2)
