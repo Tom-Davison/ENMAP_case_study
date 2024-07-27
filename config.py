@@ -11,6 +11,19 @@ class_mapping = {
     100: "moss and lichen",
 }
 
+short_class_mapping = {
+    10: "trees",
+    20: "shrubs",
+    30: "grass",
+    40: "crops",
+    50: "built",
+    60: "bare",
+    70: "snow",
+    80: "water",
+    90: "wetland",
+    100: "moss",
+}
+
 value_to_color_maps = {
     #0: "#000000",
     10: "#006400",
