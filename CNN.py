@@ -128,7 +128,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
             X_train,
             y_train,
             batch_size=4096,
-            epochs=2,
+            epochs=1,
             verbose=1,
             validation_data=(X_test, y_test),
             callbacks=[reduce_lr, early_stop],
@@ -145,25 +145,31 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
         cm = confusion_matrix(y_true_classes, y_pred_classes)
         cr = classification_report(y_true_classes, y_pred_classes, output_dict=True)
 
-        # Fix issues in json output of history
-        def convert_to_serializable(d):
-            if isinstance(d, dict):
-                return {k: convert_to_serializable(v) for k, v in d.items()}
-            elif isinstance(d, (np.float32, np.float64)):
-                return float(d)
-            elif isinstance(d, (np.int32, np.int64)):
-                return int(d)
+        # Convert classification report and history to serializable format
+        def convert_to_serializable(obj):
+            if isinstance(obj, dict):
+                return {k: convert_to_serializable(v) for k, v in obj.items()}
+            elif isinstance(obj, (list, tuple)):
+                return [convert_to_serializable(i) for i in obj]
+            elif isinstance(obj, (np.float32, np.float64)):
+                return float(obj)
+            elif isinstance(obj, (np.int32, np.int64)):
+                return int(obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
             else:
-                return d
+                return obj
 
+        history_serializable = convert_to_serializable(history.history)
         cr_serializable = convert_to_serializable(cr)
+        cm_serializable = convert_to_serializable(cm)
 
         # Save metrics
         metrics = {
-            'history': history.history,
-            'test_accuracy': test_accuracy,
-            'test_loss': test_loss,
-            'confusion_matrix': cm.tolist(),
+            'history': history_serializable,
+            'test_accuracy': float(test_accuracy),  # Ensure these are converted as well
+            'test_loss': float(test_loss),  # Ensure these are converted as well
+            'confusion_matrix': cm_serializable,
             'classification_report': cr_serializable
         }
 

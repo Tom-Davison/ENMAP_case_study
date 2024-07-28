@@ -255,6 +255,8 @@ def model_train():
     with open('data/streamlit/model_metrics.json', 'r') as f:
         metrics = json.load(f)
 
+    print(metrics['history']['accuracy'])
+
     col1, col2, col3 = st.columns(3)
     with col1:
         fig, ax = plt.subplots()
@@ -276,10 +278,6 @@ def model_train():
         ax.legend()
         st.pyplot(fig)
 
-
-    #st.header("Model Evaluation")
-    #st.write(f"Test Accuracy: {metrics['test_accuracy']:.4f}")
-    #st.write(f"Test Loss: {metrics['test_loss']:.4f}")
 
     with col3:
         fig, ax = plt.subplots()
