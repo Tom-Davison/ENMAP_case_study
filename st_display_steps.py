@@ -2,13 +2,15 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import ListedColormap, BoundaryNorm
 from sklearn.model_selection import train_test_split
-
+from matplotlib import colors as mcolors
 import numpy as np
 from rasterio.transform import Affine
 import rasterio
 import streamlit as st
 import json
-import plotly.graph_objects as go
+import joblib
+import pandas as pd
+from collections import Counter
 
 import config
 
@@ -255,7 +257,7 @@ def model_train():
     with open('data/streamlit/model_metrics.json', 'r') as f:
         metrics = json.load(f)
 
-    print(metrics['history']['accuracy'])
+    short_class_names = config.short_class_mapping.values()
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -288,18 +290,95 @@ def model_train():
         plt.xlabel('Predicted Label')
         st.pyplot(fig)
 
-    st.header("Classification Report")
+    st.subheader("Classification Report")
+
     cr = metrics['classification_report']
+
+    class_names = []
+    precisions = []
+    recalls = []
+    f1_scores = []
+
     for class_name, class_metrics in cr.items():
         if class_name not in ['accuracy', 'macro avg', 'weighted avg']:
-            st.write(f"Class {class_name}:")
-            st.write(f"  Precision: {class_metrics['precision']:.2f}")
-            st.write(f"  Recall: {class_metrics['recall']:.2f}")
-            st.write(f"  F1-score: {class_metrics['f1-score']:.2f}")
-            st.write(f"  Support: {class_metrics['support']}")
-    
-    st.write(f"Overall Accuracy: {cr['accuracy']:.2f}")
+            class_names.append(class_name)
+            precisions.append(class_metrics['precision'])
+            recalls.append(class_metrics['recall'])
+            f1_scores.append(class_metrics['f1-score'])
+            
 
+    col1, col2, col3, = st.columns(3)
+
+    with col1:
+        fig, ax1 = plt.subplots()
+        ax1.bar(class_names, precisions, color='b')
+        ax1.set_xlabel('Classes')
+        ax1.set_ylabel('Precision')
+        ax1.set_title('Precision by Class')
+        ax1.set_xticklabels(short_class_names, rotation=45)
+        ax1.set_ylim(0, 1.05)
+        st.pyplot(fig)
+    with col2:
+        fig, ax2 = plt.subplots()
+        ax2.bar(class_names, recalls, color='g')
+        ax2.set_xlabel('Classes')
+        ax2.set_ylabel('Recall')
+        ax2.set_title('Recall by Class')
+        ax2.set_xticklabels(short_class_names, rotation=45)
+        ax2.set_ylim(0, 1.05)
+        st.pyplot(fig)
+    with col3:
+        fig, ax3 = plt.subplots()
+        ax3.bar(class_names, f1_scores, color='r')
+        ax3.set_xlabel('Classes')
+        ax3.set_ylabel('F1-score')
+        ax3.set_title('F1-score by Class')
+        ax3.set_xticklabels(short_class_names, rotation=45)
+        ax3.set_ylim(0, 1.05)
+        st.pyplot(fig)
+
+    #st.write(f"Overall Accuracy: {cr['accuracy']:.2f}")
+
+@st.cache_data
+def test_model():
+    col1, col2 = st.columns(2)
+    streamlit_data = joblib.load('data/streamlit/cnn_test_results.pkl')
+
+    # Unpack the data
+    results = pd.DataFrame(streamlit_data['class_metrics'])
+    cm = streamlit_data['confusion_matrix']
+    balanced_acc = streamlit_data['balanced_accuracy']
+    outputs = streamlit_data['predicted_outputs']
+    valid_mask = streamlit_data['valid_mask']
+    correct_incorrect = streamlit_data['correct_incorrect']
+
+    with col1:
+        masked_image = np.ma.masked_where(valid_mask == 0, outputs)
+        masked_image = (masked_image * 10) + 10
+
+        fig, ax = plt.subplots()
+        im = ax.imshow(masked_image, cmap=cmap, vmax=110)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cbar = plt.colorbar(im, cax=cax)
+        cbar.set_ticks(midpoints)
+        cbar.set_ticklabels([config.short_class_mapping[key] for key in values])
+        cbar.set_label('Class')
+        ax.set_title('Predicted Land Cover Classes')
+        st.pyplot(fig)
+    with col2:
+        fig, ax = plt.subplots()
+        im = ax.imshow(correct_incorrect, cmap='RdYlGn')
+        st.pyplot(fig)
+    with col1:
+        # Display metrics
+        st.write("Performance Metrics per Class:")
+        st.dataframe(results)
+    with col2:
+        # Display confusion matrix
+        st.write("Confusion Matrix:")
+        st.write(cm)
+    
 
 def plot_enmap(enmap_avg, valid_mask, color_scale, transform):
     masked_enmap = np.ma.array(enmap_avg, mask=~valid_mask)
@@ -444,7 +523,7 @@ if selected_data:
     recreate_plots(enmap_avg, wc_image, label_array, valid_mask, metadata, plot_configs)
 else:
     st.error(f"No data found for area code: {selected_area_code}")
-
+st.write("TODO: Add x-y picker tool and allow pixel to be take, spectra to be shown, and label to be shown")
 st.header('Step 2: Hyperspectral data analysis and clustering')
 st.write(
     """
@@ -464,3 +543,4 @@ st.header('Step 4: Model training')
 model_train()
 
 st.header('Step 5: Model testing')
+test_model()

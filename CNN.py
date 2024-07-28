@@ -254,7 +254,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
         return best_model
 
 
-def predict_CNN(model):
+def predict_CNN():
     for paths in tqdm.tqdm(config.enmap_data.values(), desc="Loading Data with PCA"):
         if paths["usage"] == "testing":
             X, y = load_arrays(paths["area_code"])
@@ -352,6 +352,19 @@ def predict_CNN(model):
 
         # Color incorrect labels red (255, 0, 0)
         mask_image[incorrect_mask] = [255, 0, 0]
+
+        # Create a dictionary to store all the data
+        streamlit_data = {
+            'class_metrics': results.to_dict(orient='list'),
+            'confusion_matrix': cm,
+            'balanced_accuracy': balanced_acc,
+            'predicted_outputs': outputs,
+            'valid_mask': valid_mask,
+            'correct_incorrect': mask_image
+        }
+
+        # Save all data to a single file
+        joblib.dump(streamlit_data, 'data/streamlit/cnn_test_results.pkl')
 
         # Plot the predicted image and the mask image side by side
         plt.figure(figsize=(20, 10))

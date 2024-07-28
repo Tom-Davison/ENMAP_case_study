@@ -11,8 +11,8 @@ config = {
     "cluster_image": False,
     "generate_decomposition": False,
     "prepare_training_data": False,
-    "train_model": True,
-    "test_model": False,
+    "train_model": False,
+    "test_model": True,
     "run_case_study_1": False,
     "run_case_study_2": False
 }
