@@ -215,7 +215,6 @@ def data_prep():
         st.subheader("FastICA Decomposition Information")
         st.write(f"Number of components: {decomp_info['num_components']}")
         st.write(f"Number of iterations: {decomp_info['n_iter']}")
-        st.write(f"Mixing matrix shape: {decomp_info['mixing_matrix_shape']}")
         st.write(f"Components shape: {decomp_info['components_shape']}")
 
 @st.cache_data
@@ -248,6 +247,60 @@ def recreate_plots(
         )
 
     plt.tight_layout()
+
+
+@st.cache_data
+def model_train():
+
+    with open('data/streamlit/model_metrics.json', 'r') as f:
+        metrics = json.load(f)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        fig, ax = plt.subplots()
+        ax.plot(metrics['history']['accuracy'], label='Train Accuracy')
+        ax.plot(metrics['history']['val_accuracy'], label='Validation Accuracy')
+        ax.set_title('Model Accuracy')
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Accuracy')
+        ax.legend()
+        st.pyplot(fig)
+
+    with col2:
+        fig, ax = plt.subplots()
+        ax.plot(metrics['history']['loss'], label='Train Loss')
+        ax.plot(metrics['history']['val_loss'], label='Validation Loss')
+        ax.set_title('Model Loss')
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Loss')
+        ax.legend()
+        st.pyplot(fig)
+
+
+    #st.header("Model Evaluation")
+    #st.write(f"Test Accuracy: {metrics['test_accuracy']:.4f}")
+    #st.write(f"Test Loss: {metrics['test_loss']:.4f}")
+
+    with col3:
+        fig, ax = plt.subplots()
+        im = plt.imshow(metrics['confusion_matrix'])
+        plt.colorbar(im, ax=ax)
+        plt.title('Confusion Matrix')
+        plt.ylabel('True Label')
+        plt.xlabel('Predicted Label')
+        st.pyplot(fig)
+
+    st.header("Classification Report")
+    cr = metrics['classification_report']
+    for class_name, class_metrics in cr.items():
+        if class_name not in ['accuracy', 'macro avg', 'weighted avg']:
+            st.write(f"Class {class_name}:")
+            st.write(f"  Precision: {class_metrics['precision']:.2f}")
+            st.write(f"  Recall: {class_metrics['recall']:.2f}")
+            st.write(f"  F1-score: {class_metrics['f1-score']:.2f}")
+            st.write(f"  Support: {class_metrics['support']}")
+    
+    st.write(f"Overall Accuracy: {cr['accuracy']:.2f}")
 
 
 def plot_enmap(enmap_avg, valid_mask, color_scale, transform):
@@ -410,5 +463,6 @@ st.header('Step 3: Data preparation')
 data_prep()
 
 st.header('Step 4: Model training')
+model_train()
 
 st.header('Step 5: Model testing')

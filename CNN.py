@@ -97,10 +97,21 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
         # Optuna is still used due to 'create_model' constraints, but not saved in the database
         model = create_model(optuna.trial.FixedTrial({
             'conv1_filters': 64,
+            'conv1_kernel': 2,
+            'conv1_activation': 'relu',
+            'pool1_size': 2,
             'conv2_filters': 128,
+            'conv2_kernel': 2,
+            'conv2_activation': 'relu',
+            'pool2_size': 2,
             'conv3_filters': 512,
+            'conv3_kernel': 2,
+            'conv3_activation': 'relu',
+            'pool3_size': 2,
             'dense1_units': 256,
+            'dense1_activation': 'relu',
             'dense2_units': 128,
+            'dense2_activation': 'relu',
             'dropout1': 0.3,
             'dropout2': 0.1
         }))
@@ -117,7 +128,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
             X_train,
             y_train,
             batch_size=4096,
-            epochs=20,
+            epochs=2,
             verbose=1,
             validation_data=(X_test, y_test),
             callbacks=[reduce_lr, early_stop],
@@ -134,13 +145,26 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
         cm = confusion_matrix(y_true_classes, y_pred_classes)
         cr = classification_report(y_true_classes, y_pred_classes, output_dict=True)
 
+        # Fix issues in json output of history
+        def convert_to_serializable(d):
+            if isinstance(d, dict):
+                return {k: convert_to_serializable(v) for k, v in d.items()}
+            elif isinstance(d, (np.float32, np.float64)):
+                return float(d)
+            elif isinstance(d, (np.int32, np.int64)):
+                return int(d)
+            else:
+                return d
+
+        cr_serializable = convert_to_serializable(cr)
+
         # Save metrics
         metrics = {
             'history': history.history,
             'test_accuracy': test_accuracy,
             'test_loss': test_loss,
             'confusion_matrix': cm.tolist(),
-            'classification_report': cr
+            'classification_report': cr_serializable
         }
 
         with open('data/streamlit/model_metrics.json', 'w') as f:

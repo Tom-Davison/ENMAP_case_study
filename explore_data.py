@@ -11,7 +11,7 @@ config = {
     "cluster_image": False,
     "generate_decomposition": False,
     "prepare_training_data": False,
-    "train_model": False,
+    "train_model": True,
     "test_model": False,
     "run_case_study_1": False,
     "run_case_study_2": False
@@ -46,7 +46,7 @@ def train_model():
     # using ESA worldcover data as the ground truth.
     if config["train_model"]:
         X_train, X_test, y_train, y_test = prep_training_data(regenerate_library=config["prepare_training_data"])
-        train_test_CNN(X_train, y_train, X_test, y_test, tune=True)
+        train_test_CNN(X_train, y_train, X_test, y_test, tune=False)
 
 def test_model():
     # Label an EnMAP image using the trained CNN model. This can be used to evaluate the model
