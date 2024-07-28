@@ -1,13 +1,12 @@
 from keras import utils as k_utils
 from sklearn.model_selection import train_test_split
 import numpy as np
-from sklearn.decomposition import PCA, KernelPCA, FastICA
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-import random
-import scipy
+from sklearn.decomposition import FastICA
 import tqdm
+import json
 import joblib
 from collections import defaultdict
+from collections import Counter
 
 import config
 from read_files import load_arrays
@@ -139,6 +138,7 @@ def build_balanced_sample(target_samples_per_class=10000, max_samples_per_image=
     # This ensures that the decomposition model is not biased towards the most common classes
 
     all_samples = defaultdict(list)
+    all_labels = []
 
     # Iterate over all the training data
     for path in tqdm.tqdm(config.enmap_data.values(), desc="Loading Data for Decomposition"):
@@ -160,7 +160,14 @@ def build_balanced_sample(target_samples_per_class=10000, max_samples_per_image=
             for class_label in np.unique(y_filtered):
                 class_indices = np.where(y_filtered == class_label)[0]
                 all_samples[class_label].extend(X_filtered[class_indices].tolist())
-        
+            
+            all_labels.extend(y_filtered.tolist())
+
+    # Calculate label fractions before balancing
+    label_fractions_before = dict(Counter(all_labels))
+    total_samples_before = sum(label_fractions_before.values())
+    label_fractions_before = {int(k): float(v) / total_samples_before for k, v in label_fractions_before.items()}
+
     # Balance the classes
     balanced_samples = []
     balanced_labels = []
@@ -177,13 +184,17 @@ def build_balanced_sample(target_samples_per_class=10000, max_samples_per_image=
             balanced_samples.extend(samples)
             balanced_labels.extend([class_label] * len(samples))
     
-    return np.array(balanced_samples), np.array(balanced_labels)
+    # Calculate label fractions after balancing
+    label_fractions_after = dict(Counter(balanced_labels))
+    total_samples_after = sum(label_fractions_after.values())
+    label_fractions_after = {int(k): float(v) / total_samples_after for k, v in label_fractions_after.items()}
+
+    return np.array(balanced_samples), np.array(balanced_labels), label_fractions_before, label_fractions_after
 
 
+def generate_decomposition(model_path='data/decomp_model.pkl', info_path='data/streamlit/decomposition_info.json'):
 
-def generate_decomposition(model_path='data/decomp_model.pkl'):
-
-    X_balanced, y_balanced = build_balanced_sample()
+    X_balanced, y_balanced, label_fractions_before, label_fractions_after = build_balanced_sample()
     
     # Create and fit FastICA model using the balanced data.
     # ICA is chosen over PCA due to the nature of hyperspectral data. 
@@ -194,8 +205,23 @@ def generate_decomposition(model_path='data/decomp_model.pkl'):
     ica = FastICA(n_components=config.num_components, random_state=42, max_iter=1000)
     ica.fit(X_balanced)
     
-    # Export the model for later use
     joblib.dump(ica, model_path)
-    
     print(f"FastICA model created and saved to {model_path}")
+
+    # Prepare information for export
+    decomposition_info = {
+        "label_fractions_before": label_fractions_before,
+        "label_fractions_after": label_fractions_after,
+        "num_components": int(config.num_components),
+        "n_iter": int(ica.n_iter_),
+        "mean": ica.mean_.tolist(),
+        "mixing_matrix_shape": list(ica.mixing_.shape),
+        "components_shape": list(ica.components_.shape)
+    }
+
+    # Export the information to a JSON file
+    with open(info_path, 'w') as f:
+        json.dump(decomposition_info, f, indent=2)
+
+    print(f"Decomposition information saved to {info_path}")
     

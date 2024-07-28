@@ -1,8 +1,15 @@
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import tqdm
+import json
 import joblib
-from keras.models import load_model
-from keras.models import Sequential
+import numpy as np
+import pandas as pd
+import optuna
+
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, balanced_accuracy_score, classification_report
+
+from keras.models import load_model, Sequential
 from keras.layers import (
     Dense,
     Flatten,
@@ -12,13 +19,8 @@ from keras.layers import (
     BatchNormalization,
 )
 from keras.optimizers import Adam
-import numpy as np
-import matplotlib.colors as mcolors
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
-from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, balanced_accuracy_score
-import pandas as pd
 from keras import backend as K
-import optuna
 
 import config
 from read_files import load_arrays
@@ -111,7 +113,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
         reduce_lr = ReduceLROnPlateau(monitor="val_loss", factor=0.2, patience=5, min_lr=0.00001)
         early_stop = EarlyStopping(monitor="val_loss", patience=10, restore_best_weights=True)
 
-        model.fit(
+        history = model.fit(
             X_train,
             y_train,
             batch_size=4096,
@@ -120,6 +122,29 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
             validation_data=(X_test, y_test),
             callbacks=[reduce_lr, early_stop],
         )
+
+        # Evaluate model
+        test_loss, test_accuracy = model.evaluate(X_test, y_test)
+
+        # Confusion Matrix and Classification Report
+        y_pred = model.predict(X_test)
+        y_pred_classes = np.argmax(y_pred, axis=1)
+        y_true_classes = np.argmax(y_test, axis=1)
+        
+        cm = confusion_matrix(y_true_classes, y_pred_classes)
+        cr = classification_report(y_true_classes, y_pred_classes, output_dict=True)
+
+        # Save metrics
+        metrics = {
+            'history': history.history,
+            'test_accuracy': test_accuracy,
+            'test_loss': test_loss,
+            'confusion_matrix': cm.tolist(),
+            'classification_report': cr
+        }
+
+        with open('data/streamlit/model_metrics.json', 'w') as f:
+            json.dump(metrics, f)
 
         # export model
         model.save("data/CNN_enmap_worldcover.h5")
@@ -164,7 +189,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
             load_if_exists=True,
             direction='maximize'
         )
-        study.optimize(objective, n_trials=5)
+        study.optimize(objective, n_trials=40)
 
         # Take the best params for metrics
         best_params = study.best_params

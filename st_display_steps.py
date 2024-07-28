@@ -31,7 +31,17 @@ def load_saved_data(area_code):
 
     return enmap_avg, wc_image, label_array, valid_mask, metadata, plot_configs
 
+@st.cache_data
 def spec_analysis():
+
+    st.write(
+        """
+        Firstly we run a simple KMeans clustering algorithm on the hyperspectral data. This is set to provide
+        10 clusters, the same as the ESA WorldCover data. The difference between these is that the ESA data is 
+        oriented at human classification, whereas the clustering is based on spectral similarity. We may find that
+        e.g two crop types show much greater spectral difference than e.g 'built-up' and 'bare' land types.
+        """
+    )
     col1, col2, col3 = st.columns(3)
 
     data = np.load('data/streamlit/clustering_data.npz')
@@ -69,8 +79,6 @@ def spec_analysis():
         st.pyplot(fig)
     with col3:
         fig, ax = plt.subplots()
-        print(data['accuracy_matrix'])
-        print(data['accuracy_matrix'].shape)
         im = ax.imshow(data['accuracy_matrix'])
         cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
         ax.set_title('Accuracy Matrix')
@@ -83,6 +91,11 @@ def spec_analysis():
         st.pyplot(fig)
 
     st.subheader('Spectral Analysis')
+    st.write("""
+            The spectral analysis is used to evaluate the spectral variance of the pixels in the data. We can evaluate what features of the spectrum
+            provide the most variance and how the clusters are separated in spectral space. The spectral angles between the cluster centroids are also
+            calculated to evaluate the spectral similarity between the clusters.
+             """)
     col1, col2, col3 = st.columns(3)
     with col1:
         fig, ax = plt.subplots()
@@ -116,6 +129,10 @@ def spec_analysis():
         st.pyplot(fig)
 
     st.subheader('PCA visualization in 3 planes')
+    st.write("""
+            By visualizing the PCA results in 3 planes we can evaluate the clustering in the reduced dimensionality space. This can help to identify
+            how the clusters are separated and if there is overlap between the clusters. The PCA results are scaled by 1000 to make the plots easier to read.
+            """)
     col1, col2, col3 = st.columns(3)
     _, pca_sample, _, cluster_labels_sample = train_test_split(data['pca_result'], data['cluster_labels'], stratify=data['cluster_labels'], train_size=0.99, random_state=42)
     
@@ -149,6 +166,59 @@ def spec_analysis():
         st.pyplot(fig)
     
 
+def reorg_data():
+    # Load the decomposition info
+    with open('data/streamlit/decomposition_info.json', 'r') as f:
+        decomp_info = json.load(f)
+
+    short_class_mapping = config.short_class_mapping
+    value_to_color_maps = config.value_to_color_maps
+
+    def sort_and_filter_data(data_dict):
+        sorted_items = sorted(
+            [(int(k), v) for k, v in data_dict.items() if int(k) in short_class_mapping],
+            key=lambda x: list(short_class_mapping.keys()).index(x[0])
+        )
+        return zip(*sorted_items)
+
+    def create_bar_chart(data_dict, title):
+        labels, values = sort_and_filter_data(data_dict)
+        fig, ax = plt.subplots()
+        ax.bar(labels, values, color=[value_to_color_maps[label] for label in labels], width=5)
+        ax.set_title(title)
+        ax.set_xlabel("Class")
+        ax.set_ylabel("Fraction")
+        ax.set_xticks(labels)
+        ax.set_xticklabels([short_class_mapping[label] for label in labels], rotation=45, ha='right')
+        plt.tight_layout()
+        return fig
+
+    before_chart = create_bar_chart(decomp_info['label_fractions_before'], "Before Balancing")
+    after_chart = create_bar_chart(decomp_info['label_fractions_after'], "After Balancing")
+
+    return decomp_info, before_chart, after_chart
+
+@st.cache_data
+def data_prep():
+    decomp_info, before_chart, after_chart = reorg_data()
+
+    st.subheader("Rebalancing label fractions by sampling and augmentation")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.pyplot(before_chart)
+
+    with col2:
+        st.pyplot(after_chart)
+
+    with col3:
+        st.subheader("FastICA Decomposition Information")
+        st.write(f"Number of components: {decomp_info['num_components']}")
+        st.write(f"Number of iterations: {decomp_info['n_iter']}")
+        st.write(f"Mixing matrix shape: {decomp_info['mixing_matrix_shape']}")
+        st.write(f"Components shape: {decomp_info['components_shape']}")
+
+@st.cache_data
 def recreate_plots(
     enmap_avg, wc_image, label_array, valid_mask, metadata, plot_configs
 ):
@@ -325,4 +395,20 @@ else:
     st.error(f"No data found for area code: {selected_area_code}")
 
 st.header('Step 2: Hyperspectral data analysis and clustering')
+st.write(
+    """
+    In this step we analyse the hyperspectral data to identify clusters of similar pixels. This is 
+    done using KMeans clustering, where each pixel is assigned to a cluster based on the spectral 
+    similarity to the cluster centroid. The centroids are used to identify the spectral signature of 
+    each cluster. The clustering is compared to the ESA WorldCover data to evaluate the spectral 
+    clustering vs human oriented classification.
+    """
+)
 spec_analysis()
+
+st.header('Step 3: Data preparation')
+data_prep()
+
+st.header('Step 4: Model training')
+
+st.header('Step 5: Model testing')
