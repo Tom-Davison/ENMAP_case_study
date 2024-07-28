@@ -12,8 +12,8 @@ config = {
     "generate_decomposition": False,
     "prepare_training_data": False,
     "train_model": False,
-    "test_model": True,
-    "run_case_study_1": False,
+    "test_model": False,
+    "run_case_study_1": True,
     "run_case_study_2": False
 }
 

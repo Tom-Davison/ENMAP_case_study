@@ -465,7 +465,7 @@ def plot_labels(enmap_avg, label_array, valid_mask, transform):
     st.pyplot(fig)
 
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="Data and Model", page_icon=":earth_africa:",)
 st.title("EnMAP Data Viewer")
 
 
