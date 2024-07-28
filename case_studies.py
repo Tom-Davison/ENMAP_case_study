@@ -7,6 +7,8 @@ from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, b
 import pandas as pd
 from keras.models import load_model
 import xml.etree.ElementTree as ET
+import json
+import os
 
 import config
 from read_files import load_arrays
@@ -136,6 +138,8 @@ def generate_case_1():
 
 def generate_case_2():
     results_df = pd.DataFrame(columns=['Date'] + list(config.unit_class_mapping.values()))
+    all_data = []
+
     for paths in config.enmap_data.values():
         if paths["usage"] == "case_study_2":
 
@@ -221,6 +225,13 @@ def generate_case_2():
                 # Append the fractions DataFrame to the results DataFrame
                 results_df = pd.concat([results_df, fractions_df], ignore_index=True)
 
+                image_data = {
+                    'date': start_time,
+                    'predicted_image': outputs.tolist(),
+                    'fractions': fractions
+                }
+                all_data.append(image_data)
+
                 # Plot the predicted image and the mask image side by side
                 plt.figure(figsize=(10, 10))
 
@@ -235,6 +246,13 @@ def generate_case_2():
                 plt.title("Predicted Image")
 
                 plt.show()
+
+    all_data.sort(key=lambda x: x['date'])
+
+    # Save all the data to a single JSON file
+    output_dir = 'data/streamlit/'
+    with open(os.path.join(output_dir, 'case_2_data.json'), 'w') as f:
+        json.dump(all_data, f)
 
     # Print the results dataframe
     print(results_df)

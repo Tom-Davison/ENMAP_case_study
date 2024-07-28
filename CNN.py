@@ -96,24 +96,29 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
         print("Making Model")
         # Optuna is still used due to 'create_model' constraints, but not saved in the database
         model = create_model(optuna.trial.FixedTrial({
-            'conv1_filters': 64,
+            'conv1_filters': 88,
             'conv1_kernel': 2,
-            'conv1_activation': 'relu',
+            'conv1_activation': 'elu',
             'pool1_size': 2,
-            'conv2_filters': 128,
-            'conv2_kernel': 2,
-            'conv2_activation': 'relu',
+            'conv2_filters': 235,
+            'conv2_kernel': 3,
+            'conv2_activation': 'selu',
+            'conv3_filters': 134,
+            'conv3_kernel': 3,
+            'conv3_activation': 'selu',
             'pool2_size': 2,
-            'conv3_filters': 512,
-            'conv3_kernel': 2,
-            'conv3_activation': 'relu',
-            'pool3_size': 2,
-            'dense1_units': 256,
+            'dense1_units': 484,
             'dense1_activation': 'relu',
-            'dense2_units': 128,
+            'dropout1': 0.3350233852973473,
+            'dense2_units': 81,
             'dense2_activation': 'relu',
-            'dropout1': 0.3,
-            'dropout2': 0.1
+            'dropout2': 0.16452366381105812,
+            'learning_rate': 6.105685316508284e-05,
+            'lr_reduction_factor': 0.12556538081515298,
+            'lr_patience': 3,
+            'early_stop_patience': 6,
+            'batch_size': 256,
+            'epochs': 32
         }))
         
         optimizer = Adam(learning_rate=0.001)
@@ -128,7 +133,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
             X_train,
             y_train,
             batch_size=4096,
-            epochs=1,
+            epochs=50,
             verbose=1,
             validation_data=(X_test, y_test),
             callbacks=[reduce_lr, early_stop],

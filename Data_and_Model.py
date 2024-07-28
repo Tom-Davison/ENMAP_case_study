@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import ListedColormap, BoundaryNorm
 from sklearn.model_selection import train_test_split
-from matplotlib import colors as mcolors
 import numpy as np
 from rasterio.transform import Affine
 import rasterio
@@ -10,7 +9,6 @@ import streamlit as st
 import json
 import joblib
 import pandas as pd
-from collections import Counter
 
 import config
 
@@ -465,7 +463,7 @@ def plot_labels(enmap_avg, label_array, valid_mask, transform):
     st.pyplot(fig)
 
 
-st.set_page_config(layout="wide", page_title="Data and Model", page_icon=":earth_africa:",)
+st.set_page_config(layout="wide", page_title=":earth_africa: Data and Model", page_icon=":earth_africa:",)
 st.title("EnMAP Data Viewer")
 
 

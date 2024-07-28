@@ -45,7 +45,7 @@ unit_class_mapping = {
 
 
 num_components = 75
-sample_cap = 25000 #300000
+sample_cap =  300000 #25000
 
 
 enmap_data = {

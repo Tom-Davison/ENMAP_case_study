@@ -10,11 +10,11 @@ config = {
     "process_raw_files": False,
     "cluster_image": False,
     "generate_decomposition": False,
-    "prepare_training_data": False,
-    "train_model": False,
-    "test_model": False,
+    "prepare_training_data": True,
+    "train_model": True,
+    "test_model": True,
     "run_case_study_1": True,
-    "run_case_study_2": False
+    "run_case_study_2": True
 }
 
 def read_files(plot=False):
