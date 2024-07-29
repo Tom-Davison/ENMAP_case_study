@@ -280,10 +280,17 @@ def model_train():
 
 
     with col3:
+        cm = np.array(metrics['confusion_matrix'])
+        cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
         fig, ax = plt.subplots()
-        im = plt.imshow(metrics['confusion_matrix'])
+        im = plt.imshow(cm_normalized)
         plt.colorbar(im, ax=ax)
-        plt.title('Confusion Matrix')
+        ax.set_xticks(np.arange(len(config.short_class_mapping)))
+        ax.set_yticks(np.arange(len(config.short_class_mapping)))
+        ax.set_xticklabels(config.short_class_mapping.values(), rotation=45)
+        ax.set_yticklabels(config.short_class_mapping.values())
+        plt.title('Normalised Confusion Matrix')
         plt.ylabel('True Label')
         plt.xlabel('Predicted Label')
         st.pyplot(fig)
@@ -377,7 +384,7 @@ def test_model():
             with col2:
                 # Display confusion matrix
                 cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-                st.write("Normalized Confusion Matrix:")
+                st.write("Normalised Confusion Matrix:")
                 fig, ax = plt.subplots(figsize=(10, 8))
                 im = ax.imshow(cm_normalized, cmap='Blues', vmin=0, vmax=1)
                 ax.set_xticks(np.arange(len(config.short_class_mapping)))
@@ -386,7 +393,7 @@ def test_model():
                 ax.set_yticklabels(config.short_class_mapping.values())
                 ax.set_xlabel('Predicted')
                 ax.set_ylabel('Actual')
-                ax.set_title('Normalized Confusion Matrix')
+                ax.set_title('Normalised Confusion Matrix')
                 cbar = plt.colorbar(im)
                 cbar.set_label('Fraction of Samples')
                 st.pyplot(fig)
@@ -549,9 +556,32 @@ st.write(
 spec_analysis()
 
 st.header('Step 3: Data preparation')
+st.write(
+    """
+    We wish for the model to be rewarded for correctly classifying each class equally. If classes were
+    unbalanced, the model may falsely classify the most common class more often as a result of the associated
+    reward. This can be handled in metric tracking, but balancing classes is a robust solution. 
+    """
+)
+st.write(
+    """
+    For decomposition, ICA is chosen over PCA due to the nature of hyperspectral data. Hyperspectral can 
+    have mixed pixel spectra due to the presence of multiple materials within a single pixel. ICA works 
+    to unmix these spectra into their components, making it easier to identify and classify the underlying 
+    materials.  
+    """
+)
 data_prep()
 
 st.header('Step 4: Model training')
+st.write(
+    """
+    A Convolutional Neural Network (CNN) is trained on the decomposed data to classify the land type of the 
+    input images. This is tuned through Optuna to find the best hyperparameters. We see some degree of overfitting
+    during training, with the divergence of the training and validation loss. Early stopping mitigated this to some
+    degree by stopping training at the plateu.
+    """
+)
 model_train()
 
 st.header('Step 5: Model testing')
