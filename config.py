@@ -49,7 +49,6 @@ sample_cap =  300000 #25000
 
 
 enmap_data = {
-    """
     "entry1": {
         "image": "data/enmap_image_austria.tif",
         "metadata": "data/enmap_metadata_austria.XML",
@@ -122,7 +121,6 @@ enmap_data = {
         "area_code": "tibet2",
         "cluster": False
     },
-    """
     "entry13": {
         "image": "data/enmap_image_brazilcase1.TIF",
         "metadata": "data/enmap_metadata_brazilcase1.XML",
@@ -139,7 +137,6 @@ enmap_data = {
         "area_code": "brazilcase2",
         "cluster": False
     },
-    """
     "entry15": {
         "image": "data/enmap_image_zambia1.TIF",
         "metadata": "data/enmap_metadata_zambia1.XML",
@@ -180,7 +177,6 @@ enmap_data = {
         "area_code": "zambiacase5",
         "cluster": False
     },
-    """
     "entry20": {
         "image": "data/enmap_image_brazilcase3.TIF",
         "metadata": "data/enmap_metadata_brazilcase3.XML",

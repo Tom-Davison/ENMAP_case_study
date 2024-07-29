@@ -261,7 +261,7 @@ def train_test_CNN(X_train, y_train, X_test, y_test, tune=False):
 
 def predict_CNN():
     for paths in tqdm.tqdm(config.enmap_data.values(), desc="Loading Data with PCA"):
-        if paths["usage"] == "testing":
+        if paths["usage"] == "testing" or paths["area_code"] == "austria":
             X, y = load_arrays(paths["area_code"])
             print("X shape: ", X.shape)
             print("y shape: ", y.shape)
@@ -282,114 +282,113 @@ def predict_CNN():
             X_decomp = decomp.transform(X_filtered) 
             
             print("X_decomp shape: ", X_decomp.shape)
-            break
     
-    # Create a mask for valid labels (not -1 or 0)
-    valid_mask = (y != -1) & (y != 0)
+            # Create a mask for valid labels (not -1 or 0)
+            valid_mask = (y != -1) & (y != 0)
 
-    # Convert y to consecutive labels, only for valid labels
-    y_consecutive = np.full(y.shape, -1, dtype=int)  # Fill with -1 initially
-    y_consecutive[valid_mask] = (y[valid_mask] / 10) - 1
+            # Convert y to consecutive labels, only for valid labels
+            y_consecutive = np.full(y.shape, -1, dtype=int)  # Fill with -1 initially
+            y_consecutive[valid_mask] = (y[valid_mask] / 10) - 1
 
-    # Define a colormap and normalization for the predicted image
-    cmap = plt.cm.get_cmap("tab10", len(config.unit_class_mapping))
-    norm = mcolors.BoundaryNorm(
-        boundaries=[key - 0.5 for key in sorted(config.unit_class_mapping.keys())]
-        + [max(config.unit_class_mapping.keys()) + 0.5],
-        ncolors=len(config.unit_class_mapping),
-    )
+            # Define a colormap and normalization for the predicted image
+            cmap = plt.cm.get_cmap("tab10", len(config.unit_class_mapping))
+            norm = mcolors.BoundaryNorm(
+                boundaries=[key - 0.5 for key in sorted(config.unit_class_mapping.keys())]
+                + [max(config.unit_class_mapping.keys()) + 0.5],
+                ncolors=len(config.unit_class_mapping),
+            )
 
-    height, width = y.shape
-    print(height, width)
+            height, width = y.shape
+            print(height, width)
 
-    outputs = np.full((height, width), -1)  # Fill with -1 initially
+            outputs = np.full((height, width), -1)  # Fill with -1 initially
 
-    pixels = X_decomp
-    positions = np.argwhere(valid_mask)
+            pixels = X_decomp
+            positions = np.argwhere(valid_mask)
 
-    model = load_model("data/CNN_enmap_worldcover.h5")
+            model = load_model("data/CNN_enmap_worldcover.h5")
 
-    if len(pixels) > 0:
-        # Predict the labels for the valid pixels
-        predictions = model.predict(pixels)
+            if len(pixels) > 0:
+                # Predict the labels for the valid pixels
+                predictions = model.predict(pixels)
 
-        for prediction, position in zip(predictions, positions):
-            outputs[position[0], position[1]] = np.argmax(prediction)
+                for prediction, position in zip(predictions, positions):
+                    outputs[position[0], position[1]] = np.argmax(prediction)
 
-        # Convert predictions to class labels
-        predicted_labels = np.argmax(predictions, axis=1)
-        true_labels = y_consecutive[valid_mask].flatten()
+                # Convert predictions to class labels
+                predicted_labels = np.argmax(predictions, axis=1)
+                true_labels = y_consecutive[valid_mask].flatten()
 
-        # Calculate confusion matrix
-        cm = confusion_matrix(true_labels, predicted_labels)
+                # Calculate confusion matrix
+                cm = confusion_matrix(true_labels, predicted_labels)
 
-        # Calculate precision, recall, and F1-score for each class
-        precision, recall, f1, support = precision_recall_fscore_support(true_labels, predicted_labels)
+                # Calculate precision, recall, and F1-score for each class
+                precision, recall, f1, support = precision_recall_fscore_support(true_labels, predicted_labels)
 
-        # Calculate balanced accuracy
-        balanced_acc = balanced_accuracy_score(true_labels, predicted_labels)
+                # Calculate balanced accuracy
+                balanced_acc = balanced_accuracy_score(true_labels, predicted_labels)
 
-        # Create a DataFrame to display results
-        results = pd.DataFrame({
-            'Class': [config.class_mapping[config.unit_class_mapping[i]] for i in range(len(precision))],
-            'Precision': precision,
-            'Recall': recall,
-            'F1-score': f1,
-            'Support': support
-        })
+                # Create a DataFrame to display results
+                results = pd.DataFrame({
+                    'Class': [config.class_mapping[config.unit_class_mapping[i]] for i in range(len(precision))],
+                    'Precision': precision,
+                    'Recall': recall,
+                    'F1-score': f1,
+                    'Support': support
+                })
 
-        print("Performance Metrics per Class:")
-        print(results)
-        print(f"\nBalanced Accuracy: {balanced_acc:.4f}")
+                print("Performance Metrics per Class:")
+                print(results)
+                print(f"\nBalanced Accuracy: {balanced_acc:.4f}")
 
-        print("\nConfusion Matrix:")
-        print(cm)
+                print("\nConfusion Matrix:")
+                print(cm)
 
-        # Create a mask for correct (green) and incorrect (red) labels
-        correct_mask = (y_consecutive == outputs) & valid_mask
-        incorrect_mask = (y_consecutive != outputs) & valid_mask
+                # Create a mask for correct (green) and incorrect (red) labels
+                correct_mask = (y_consecutive == outputs) & valid_mask
+                incorrect_mask = (y_consecutive != outputs) & valid_mask
 
-        # Create an RGB image to store the mask
-        mask_image = np.zeros((height, width, 3), dtype=np.uint8)
+                # Create an RGB image to store the mask
+                mask_image = np.zeros((height, width, 3), dtype=np.uint8)
 
-        # Color correct labels green (0, 255, 0)
-        mask_image[correct_mask] = [0, 255, 0]
+                # Color correct labels green (0, 255, 0)
+                mask_image[correct_mask] = [0, 255, 0]
 
-        # Color incorrect labels red (255, 0, 0)
-        mask_image[incorrect_mask] = [255, 0, 0]
+                # Color incorrect labels red (255, 0, 0)
+                mask_image[incorrect_mask] = [255, 0, 0]
 
-        # Create a dictionary to store all the data
-        streamlit_data = {
-            'class_metrics': results.to_dict(orient='list'),
-            'confusion_matrix': cm,
-            'balanced_accuracy': balanced_acc,
-            'predicted_outputs': outputs,
-            'valid_mask': valid_mask,
-            'correct_incorrect': mask_image
-        }
+                # Create a dictionary to store all the data
+                streamlit_data = {
+                    'class_metrics': results.to_dict(orient='list'),
+                    'confusion_matrix': cm,
+                    'balanced_accuracy': balanced_acc,
+                    'predicted_outputs': outputs,
+                    'valid_mask': valid_mask,
+                    'correct_incorrect': mask_image
+                }
 
-        # Save all data to a single file
-        joblib.dump(streamlit_data, 'data/streamlit/cnn_test_results.pkl')
+                # Save all data to a single file
+                joblib.dump(streamlit_data, f'data/streamlit/{paths["area_code"]}_test_data.pkl')
 
-        # Plot the predicted image and the mask image side by side
-        plt.figure(figsize=(20, 10))
+                # Plot the predicted image and the mask image side by side
+                plt.figure(figsize=(20, 10))
 
-        # Plot predicted image
-        plt.subplot(1, 2, 1)
-        predict_image = plt.imshow(outputs, cmap=cmap, norm=norm)
-        cbar = plt.colorbar(predict_image, ticks=sorted(config.unit_class_mapping.keys()))
-        cbar.ax.set_yticklabels(
-            [
-                config.class_mapping[config.unit_class_mapping[key]]
-                for key in sorted(config.unit_class_mapping.keys())
-            ]
-        )
-        plt.title("Predicted Image")
+                # Plot predicted image
+                plt.subplot(1, 2, 1)
+                predict_image = plt.imshow(outputs, cmap=cmap, norm=norm)
+                cbar = plt.colorbar(predict_image, ticks=sorted(config.unit_class_mapping.keys()))
+                cbar.ax.set_yticklabels(
+                    [
+                        config.class_mapping[config.unit_class_mapping[key]]
+                        for key in sorted(config.unit_class_mapping.keys())
+                    ]
+                )
+                plt.title("Predicted Image")
 
-        # Plot correct vs. incorrect mask
-        plt.subplot(1, 2, 2)
-        plt.imshow(mask_image)
-        plt.title("Correct vs Incorrect Labels")
+                # Plot correct vs. incorrect mask
+                plt.subplot(1, 2, 2)
+                plt.imshow(mask_image)
+                plt.title("Correct vs Incorrect Labels")
 
-        plt.show()
-        print("Plot done")
+                plt.show()
+                print("Plot done")

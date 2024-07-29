@@ -55,7 +55,7 @@ def plot_case2():
     for c in df.columns:
         if c not in ['Unknown', '-1']:
             df[c] = df[c].astype(float)
-            plt.plot(df.index, df[c], c=config.value_to_color_maps[int(c)], lw=2, label=config.short_class_mapping[int(c)])
+            plt.plot(df.index[0:4], df[c][0:4], c=config.value_to_color_maps[int(c)], lw=2, label=config.short_class_mapping[int(c)])
     plt.title("Land Type Distribution Over Time")
     plt.xlabel("Date")
     plt.ylabel("Proportion")

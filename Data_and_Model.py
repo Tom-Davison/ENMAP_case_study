@@ -339,43 +339,45 @@ def model_train():
 
 @st.cache_data
 def test_model():
-    col1, col2 = st.columns(2)
-    streamlit_data = joblib.load('data/streamlit/cnn_test_results.pkl')
+    for paths in config.enmap_data.values():
+        if paths["usage"] == "testing" or paths["area_code"] == "austria":
+            col1, col2 = st.columns(2)
+            streamlit_data = joblib.load(f'data/streamlit/{paths["area_code"]}_test_data.pkl')
 
-    # Unpack the data
-    results = pd.DataFrame(streamlit_data['class_metrics'])
-    cm = streamlit_data['confusion_matrix']
-    balanced_acc = streamlit_data['balanced_accuracy']
-    outputs = streamlit_data['predicted_outputs']
-    valid_mask = streamlit_data['valid_mask']
-    correct_incorrect = streamlit_data['correct_incorrect']
+            # Unpack the data
+            results = pd.DataFrame(streamlit_data['class_metrics'])
+            cm = streamlit_data['confusion_matrix']
+            balanced_acc = streamlit_data['balanced_accuracy']
+            outputs = streamlit_data['predicted_outputs']
+            valid_mask = streamlit_data['valid_mask']
+            correct_incorrect = streamlit_data['correct_incorrect']
 
-    with col1:
-        masked_image = np.ma.masked_where(valid_mask == 0, outputs)
-        masked_image = (masked_image * 10) + 10
+            with col1:
+                masked_image = np.ma.masked_where(valid_mask == 0, outputs)
+                masked_image = (masked_image * 10) + 10
 
-        fig, ax = plt.subplots()
-        im = ax.imshow(masked_image, cmap=cmap, vmax=110)
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
-        cbar = plt.colorbar(im, cax=cax)
-        cbar.set_ticks(midpoints)
-        cbar.set_ticklabels([config.short_class_mapping[key] for key in values])
-        cbar.set_label('Class')
-        ax.set_title('Predicted Land Cover Classes')
-        st.pyplot(fig)
-    with col2:
-        fig, ax = plt.subplots()
-        im = ax.imshow(correct_incorrect, cmap='RdYlGn')
-        st.pyplot(fig)
-    with col1:
-        # Display metrics
-        st.write("Performance Metrics per Class:")
-        st.dataframe(results)
-    with col2:
-        # Display confusion matrix
-        st.write("Confusion Matrix:")
-        st.write(cm)
+                fig, ax = plt.subplots()
+                im = ax.imshow(masked_image, cmap=cmap, vmax=110)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.1)
+                cbar = plt.colorbar(im, cax=cax)
+                cbar.set_ticks(midpoints)
+                cbar.set_ticklabels([config.short_class_mapping[key] for key in values])
+                cbar.set_label('Class')
+                ax.set_title('Predicted Land Cover Classes')
+                st.pyplot(fig)
+            with col2:
+                fig, ax = plt.subplots()
+                im = ax.imshow(correct_incorrect, cmap='RdYlGn')
+                st.pyplot(fig)
+            with col1:
+                # Display metrics
+                st.write("Performance Metrics per Class:")
+                st.dataframe(results)
+            with col2:
+                # Display confusion matrix
+                st.write("Confusion Matrix:")
+                st.write(cm)
     
 
 def plot_enmap(enmap_avg, valid_mask, color_scale, transform):
