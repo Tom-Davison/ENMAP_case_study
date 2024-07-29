@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import ListedColormap, BoundaryNorm
+import matplotlib.colors as mcolors
 from sklearn.model_selection import train_test_split
 import numpy as np
 from rasterio.transform import Affine
@@ -346,6 +347,14 @@ def model_train():
 
 @st.cache_data
 def test_model():
+
+    # Create a custom colourmap
+    colors = ['red', 'green']
+    n_bins = 2
+    cmap_rg = mcolors.ListedColormap(colors)
+    bounds = np.linspace(0, 1, n_bins + 1)
+    norm_rg = mcolors.BoundaryNorm(bounds, cmap_rg.N)
+
     for paths in config.enmap_data.values():
         if paths["usage"] == "testing" or paths["area_code"] == "austria":
             col1, col2 = st.columns(2)
@@ -362,7 +371,7 @@ def test_model():
             with col1:
                 masked_image = np.ma.masked_where(valid_mask == 0, outputs)
                 masked_image = (masked_image * 10) + 10
-
+                midpoints = [10 + ((i + 0.5) * 10) for i in range(10)]
                 fig, ax = plt.subplots()
                 im = ax.imshow(masked_image, cmap=cmap, vmax=110)
                 divider = make_axes_locatable(ax)
@@ -375,8 +384,11 @@ def test_model():
                 st.pyplot(fig)
             with col2:
                 fig, ax = plt.subplots()
-                im = ax.imshow(correct_incorrect, cmap='RdYlGn')
+                im = ax.imshow(correct_incorrect, cmap=cmap_rg, norm=norm_rg)
+                cbar = fig.colorbar(im, ax=ax, ticks=[0.25, 0.75], fraction=0.04, pad=0.05, aspect=30)
+                cbar.set_ticklabels(['Incorrect', 'Correct'])
                 st.pyplot(fig)
+            col1, col2 = st.columns(2)
             with col1:
                 # Display metrics
                 st.write("Performance Metrics per Class:")
@@ -484,8 +496,8 @@ def plot_labels(enmap_avg, label_array, valid_mask, transform):
     st.pyplot(fig)
 
 
-st.set_page_config(layout="wide", page_title=":earth_africa: Data and Model", page_icon=":earth_africa:",)
-st.title("EnMAP Data Viewer")
+st.set_page_config(layout="wide", page_title="Data and Model", page_icon=":earth_africa:",)
+st.title("EnMAP Data Analysis and Training")
 
 
 # Extract colors and values
@@ -528,7 +540,7 @@ st.write(
 )
 st.write(
     """
-    Note that the enmap data is contrained by a bounding Polygon indicating the valid are, so may 
+    Note that the enmap data is contrained by a bounding Polygon indicating the valid area, so may 
     be clipped compared to the full sensor size. EnMAP colour scales are automatically adjusted to 
     2nd and 98th percentiles of the data to show detail, however this can be disrupted by incorrect bounds 
     provided in the EnMAP metadata.
@@ -542,7 +554,7 @@ if selected_data:
     recreate_plots(enmap_avg, wc_image, label_array, valid_mask, metadata, plot_configs)
 else:
     st.error(f"No data found for area code: {selected_area_code}")
-st.write("TODO: Add x-y picker tool and allow pixel to be take, spectra to be shown, and label to be shown")
+
 st.header('Step 2: Hyperspectral data analysis and clustering')
 st.write(
     """
@@ -585,4 +597,11 @@ st.write(
 model_train()
 
 st.header('Step 5: Model testing')
+st.write(
+    """
+    The trained model is tested on labelled data to evaluate the performance. We see two cases. The first is an 
+    area with fairly stable land types over time. The second shows an area where seasonal differences may significantly
+    change the spectra. This can be seen most clearly in the confusion between grass and crops
+    """
+)
 test_model()

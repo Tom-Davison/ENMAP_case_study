@@ -43,7 +43,7 @@ def plot_case2():
             colors = [config.value_to_color_maps[int(k)] for k in sorted_fractions.keys()]
             
             fig, ax = plt.subplots()
-            ax.pie(sorted_fractions.values(), labels=labels, colors=colors, autopct='', startangle=90)
+            ax.pie(sorted_fractions.values(), labels=labels, colors=colors, autopct=None, startangle=90)
             plt.title("Land Type Distribution")            
             ax.legend(title="Land Type", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
             st.pyplot(fig)
@@ -51,7 +51,6 @@ def plot_case2():
     # Plot the time series
     st.subheader("Land Type Distribution Over Time")
     fig, ax = plt.subplots(figsize=(10, 5))
-    print([config.value_to_color_maps[int(c)] for c in df.columns if c not in ['Unknown', '-1']])
     for c in df.columns:
         if c not in ['Unknown', '-1']:
             df[c] = df[c].astype(float)
@@ -64,7 +63,6 @@ def plot_case2():
     st.pyplot(fig)
 
 st.set_page_config(layout="wide", page_title="Case Study 2: Seasonal Floods", page_icon=":ocean:",)
-st.title("EnMAP Data Viewer")
 
 colors = list(config.value_to_color_maps.values())
 values = list(config.value_to_color_maps.keys())
@@ -73,5 +71,5 @@ cmap.set_bad(color='white')
 
 midpoints = [val + 0.5 for val in range(0, 10, 1)]
 
-st.title('Land Classification Analysis')
+st.title('Case Study: Seasonal Grasslands')
 plot_case2()

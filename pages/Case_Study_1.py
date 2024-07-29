@@ -25,6 +25,20 @@ def case_1_plot():
         if paths["usage"] == "case_study_1":
             area_codes.append(paths["area_code"])
     
+    st.write(
+    """
+    Here we view EnMAP data taken from both Brazil and Bolivia. According to the Worldcover data, the area is entirely forested.
+    However subsequent to that time (2021) the Brazilian government has allowed deforestation to occur in the area. The Bolivian forrest
+    on the other hand has been protected within the national park. We are able to see this using the classified data, where the first image 
+    has a large part of 'shrubland' indicating a loss of forrest; whereas Bolivian images (all others) show a retention of forrest.
+    """)
+
+    st.write(
+    """
+    Note that matplotlib allocated a colour to a displayed pixel based on all pixels within the original resolution. As such, the image can be misleading
+    and the 'Class Fractions' plot should be interperted as the true representation of the data.
+    """)
+
     col1, col2, col3 = st.columns(3)
     with col1:
         st.write('Raw spectral data (averaged)')
@@ -61,7 +75,7 @@ def case_1_plot():
             st.pyplot(fig)
 
 st.set_page_config(layout="wide", page_title="Case Study: Deforestation", page_icon=":deciduous_tree:",)
-st.title("EnMAP Data Viewer")
+st.title("Case Study: Deforestation")
 colors = list(config.value_to_color_maps.values())
 values = list(config.value_to_color_maps.keys())
 cmap = ListedColormap(colors)
