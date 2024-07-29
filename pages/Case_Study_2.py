@@ -2,8 +2,9 @@ import streamlit as st
 import json
 import matplotlib.pyplot as plt
 import pandas as pd
-from matplotlib.colors import ListedColormap, BoundaryNorm
-import numpy as np
+from matplotlib.colors import ListedColormap
+from datetime import datetime
+from datetime import timedelta
 
 import config
 
@@ -19,7 +20,9 @@ def plot_case2():
 
     # Plot each image with its land type distribution
     for data in all_data[0:4]:
-        st.subheader(f"Date: {data['date']}")
+        date_obj = datetime.fromisoformat(data['date'].rstrip("Z"))
+        formatted_date = date_obj.strftime("%B %d, %Y")
+        st.subheader(f"Date: {formatted_date}")
         
         # Create two columns
         col1, col2 = st.columns(2)
@@ -43,9 +46,9 @@ def plot_case2():
             colors = [config.value_to_color_maps[int(k)] for k in sorted_fractions.keys()]
             
             fig, ax = plt.subplots()
-            ax.pie(sorted_fractions.values(), labels=labels, colors=colors, autopct=None, startangle=90)
-            plt.title("Land Type Distribution")            
-            ax.legend(title="Land Type", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+            wedges, _ = ax.pie(sorted_fractions.values(), labels=None, colors=colors, autopct=None, startangle=90)
+            plt.title("Land Type Distribution")
+            ax.legend(wedges, labels, title="Land Type", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
             st.pyplot(fig)
 
     # Plot the time series
@@ -55,6 +58,8 @@ def plot_case2():
         if c not in ['Unknown', '-1']:
             df[c] = df[c].astype(float)
             plt.plot(df.index[0:4], df[c][0:4], c=config.value_to_color_maps[int(c)], lw=2, label=config.short_class_mapping[int(c)])
+
+    plt.vlines(df.index[1] + timedelta(hours=21), 0, 0.5, color='black', linestyle='dashed', alpha=0.5)
     plt.title("Land Type Distribution Over Time")
     plt.xlabel("Date")
     plt.ylabel("Proportion")

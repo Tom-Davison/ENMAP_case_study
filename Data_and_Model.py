@@ -140,7 +140,7 @@ def spec_analysis():
     pca_sample = np.array(pca_sample) / 1000
     with col1:
         fig, ax = plt.subplots(figsize=(5, 5))
-        plt.scatter(pca_sample[:, 0], pca_sample[:, 1], c=cluster_labels_sample, cmap='viridis', s=2, alpha=0.8)
+        plt.scatter(pca_sample[:, 0], pca_sample[:, 1], c=cluster_labels_sample, cmap='tab10', s=2, alpha=0.8)
         ax.set_title('PC1 vs PC2')
         ax.set_xlabel('PC1')
         ax.set_ylabel('PC2')
@@ -149,7 +149,7 @@ def spec_analysis():
         st.pyplot(fig)
     with col2:
         fig, ax = plt.subplots(figsize=(5, 5))
-        plt.scatter(pca_sample[:, 0], pca_sample[:, 2], c=cluster_labels_sample, cmap='viridis', s=2, alpha=0.8)
+        plt.scatter(pca_sample[:, 0], pca_sample[:, 2], c=cluster_labels_sample, cmap='tab10', s=2, alpha=0.8)
         ax.set_title('PC1 vs PC2')
         ax.set_xlabel('PC1')
         ax.set_ylabel('PC3')
@@ -158,7 +158,7 @@ def spec_analysis():
         st.pyplot(fig)
     with col3:
         fig, ax = plt.subplots(figsize=(5, 5))
-        plt.scatter(pca_sample[:, 1], pca_sample[:, 2], c=cluster_labels_sample, cmap='viridis', s=2, alpha=0.8)
+        plt.scatter(pca_sample[:, 1], pca_sample[:, 2], c=cluster_labels_sample, cmap='tab10', s=2, alpha=0.8)
         ax.set_title('PC1 vs PC2')
         ax.set_xlabel('PC2')
         ax.set_ylabel('PC3')
