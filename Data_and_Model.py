@@ -376,8 +376,20 @@ def test_model():
                 st.dataframe(results)
             with col2:
                 # Display confusion matrix
-                st.write("Confusion Matrix:")
-                st.write(cm)
+                cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+                st.write("Normalized Confusion Matrix:")
+                fig, ax = plt.subplots(figsize=(10, 8))
+                im = ax.imshow(cm_normalized, cmap='Blues', vmin=0, vmax=1)
+                ax.set_xticks(np.arange(len(config.short_class_mapping)))
+                ax.set_yticks(np.arange(len(config.short_class_mapping)))
+                ax.set_xticklabels(config.short_class_mapping.values())
+                ax.set_yticklabels(config.short_class_mapping.values())
+                ax.set_xlabel('Predicted')
+                ax.set_ylabel('Actual')
+                ax.set_title('Normalized Confusion Matrix')
+                cbar = plt.colorbar(im)
+                cbar.set_label('Fraction of Samples')
+                st.pyplot(fig)
     
 
 def plot_enmap(enmap_avg, valid_mask, color_scale, transform):
@@ -447,7 +459,7 @@ def plot_labels(enmap_avg, label_array, valid_mask, transform):
 
     fig, ax = plt.subplots(figsize=(6, 6))
     label_plot = ax.imshow(
-        masked_labels, cmap=cmap, norm=norm, alpha=0.5, extent=extent
+        masked_labels, cmap=cmap, norm=norm, extent=extent
     )
 
     divider = make_axes_locatable(ax)
