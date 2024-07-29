@@ -93,6 +93,18 @@ def generate_case_1():
                     'Support': support
                 })
 
+                class_fractions = np.bincount(outputs[outputs != -1], minlength=len(config.unit_class_mapping)) / np.sum(outputs != -1)
+
+                # Save data for Streamlit
+                data_to_save = {
+                    'raw_spectral': X.mean(axis=2),  # Average along the spectral axis
+                    'classified_image': outputs,
+                    'class_fractions': class_fractions,
+                    'class_names': [config.class_mapping[config.unit_class_mapping[i]] for i in range(len(class_fractions))]
+                }
+                
+                np.save(f'data/streamlit/case1_{paths["area_code"]}_data.npy', data_to_save)
+
                 print("Performance Metrics per Class:")
                 print(results)
                 print(f"\nBalanced Accuracy: {balanced_acc:.4f}")

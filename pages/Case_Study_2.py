@@ -18,7 +18,7 @@ def plot_case2():
     df = df.set_index('Date')
 
     # Plot each image with its land type distribution
-    for data in all_data:
+    for data in all_data[0:4]:
         st.subheader(f"Date: {data['date']}")
         
         # Create two columns

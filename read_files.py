@@ -93,6 +93,7 @@ def read_and_convert_files(enmap_data_path, enmap_metadata_path, esa_worldcover_
         (float(point.find("longitude").text), float(point.find("latitude").text))
         for point in bounding_polygon.findall("point")
     ]
+    print(f"Bounding coordinates: {coordinates}")
 
     # Convert coordinates to a Polygon
     bounding_polygon = Polygon(coordinates[0:5])

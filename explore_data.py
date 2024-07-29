@@ -10,14 +10,14 @@ config = {
     "process_raw_files": False,
     "cluster_image": False,
     "generate_decomposition": False,
-    "prepare_training_data": True,
-    "train_model": True,
-    "test_model": True,
+    "prepare_training_data": False,
+    "train_model": False,
+    "test_model": False,
     "run_case_study_1": True,
-    "run_case_study_2": True
+    "run_case_study_2": False
 }
 
-def read_files(plot=False):
+def read_files(plot=True):
     # Read and standardise the images ensuring EnMAP and ESA WorldCover data are 
     # in the same format and projection. This will be the basis for our input and
     # laballed data for the CNN model.

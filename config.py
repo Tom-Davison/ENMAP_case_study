@@ -49,6 +49,7 @@ sample_cap =  300000 #25000
 
 
 enmap_data = {
+    """
     "entry1": {
         "image": "data/enmap_image_austria.tif",
         "metadata": "data/enmap_metadata_austria.XML",
@@ -121,6 +122,7 @@ enmap_data = {
         "area_code": "tibet2",
         "cluster": False
     },
+    """
     "entry13": {
         "image": "data/enmap_image_brazilcase1.TIF",
         "metadata": "data/enmap_metadata_brazilcase1.XML",
@@ -137,6 +139,7 @@ enmap_data = {
         "area_code": "brazilcase2",
         "cluster": False
     },
+    """
     "entry15": {
         "image": "data/enmap_image_zambia1.TIF",
         "metadata": "data/enmap_metadata_zambia1.XML",
@@ -175,6 +178,39 @@ enmap_data = {
         "reference": "data/worldcover_zambia.tif",
         "usage": "case_study_2",
         "area_code": "zambiacase5",
+        "cluster": False
+    },
+    """
+    "entry20": {
+        "image": "data/enmap_image_brazilcase3.TIF",
+        "metadata": "data/enmap_metadata_brazilcase3.XML",
+        "reference": "data/worldcover_brazilcase1.tif",
+        "usage": "case_study_1",
+        "area_code": "brazilcase3",
+        "cluster": False
+    },
+    "entry21": {
+        "image": "data/enmap_image_brazilcase4.TIF",
+        "metadata": "data/enmap_metadata_brazilcase4.XML",
+        "reference": "data/worldcover_brazilcase1.tif",
+        "usage": "case_study_1",
+        "area_code": "brazilcase4",
+        "cluster": False
+    },
+    "entry22": {
+        "image": "data/enmap_image_brazilcase5.TIF",
+        "metadata": "data/enmap_metadata_brazilcase5.XML",
+        "reference": "data/worldcover_brazilcase1.tif",
+        "usage": "case_study_1",
+        "area_code": "brazilcase5",
+        "cluster": False
+    },
+    "entry23": {
+        "image": "data/enmap_image_brazilcase6.TIF",
+        "metadata": "data/enmap_metadata_brazilcase6.XML",
+        "reference": "data/worldcover_brazilcase1.tif",
+        "usage": "case_study_1",
+        "area_code": "brazilcase6",
         "cluster": False
     },
 }
