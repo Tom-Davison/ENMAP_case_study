@@ -37,8 +37,8 @@ def spec_analysis():
 
     st.write(
         """
-        Firstly we run a simple KMeans clustering algorithm on the hyperspectral data. This is set to provide
-        10 clusters, the same as the ESA WorldCover data. The difference between these is that the ESA data is 
+        Firstly we run a simple KMeans clustering algorithm on the hyperspectral data. This is configured to provide
+        10 clusters, the same as the ESA WorldCover data. The key difference between these is that the ESA data is 
         oriented at human classification, whereas the clustering is based on spectral similarity. We may find that
         e.g two crop types show much greater spectral difference than e.g 'built-up' and 'bare' land types.
         """
@@ -93,7 +93,7 @@ def spec_analysis():
 
     st.subheader('Spectral Analysis')
     st.write("""
-            The spectral analysis is used to evaluate the spectral variance of the pixels in the data. We can evaluate what features of the spectrum
+            The spectral analysis is used to evaluate the spectral variance of the pixels in the data. We can evaluate which features of the spectrum
             provide the most variance and how the clusters are separated in spectral space. The spectral angles between the cluster centroids are also
             calculated to evaluate the spectral similarity between the clusters.
              """)
