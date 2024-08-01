@@ -5,7 +5,7 @@ from CNN import train_test_CNN, predict_CNN
 from cluster_tools import cluster_image
 from case_studies import generate_case_1, generate_case_2
 
-# Choose coponents to run
+# Choose the components to run
 config = {
     "process_raw_files": False,
     "cluster_image": False,
